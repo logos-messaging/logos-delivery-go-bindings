@@ -1,4 +1,4 @@
-# Waku Go Bindings
+# logos-delivery Go Bindings
 
 Go bindings for the Waku library.
 
