@@ -1,7 +1,7 @@
 # Makefile for Waku Go Bindings
 
-# Path to logos-messaging-nim (nwaku) submodule
-export LMN_DIR ?= $(shell pwd)/../vendor/logos-messaging-nim
+# Path to logos-delivery submodule
+export LMN_DIR ?= $(shell pwd)/../vendor/logos-delivery
 
 # Debugging output
 print-paths:
