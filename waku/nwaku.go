@@ -386,6 +386,7 @@ func WakuGoCallback(ret C.int, msg *C.char, len C.size_t, resp unsafe.Pointer) {
 type WakuNode struct {
 	wakuCtx              unsafe.Pointer
 	config               *common.WakuConfig
+	extraOptions         common.ExtraOptions
 	MsgChan              chan common.Envelope
 	TopicHealthChan      chan topicHealth
 	ConnectionChangeChan chan connectionChange
@@ -393,11 +394,15 @@ type WakuNode struct {
 	_                    timesource.Timesource
 }
 
-func NewWakuNode(config *common.WakuConfig, nodeName string) (*WakuNode, error) {
+func NewWakuNode(config *common.WakuConfig, nodeName string, opts ...WakuNodeOption) (*WakuNode, error) {
 	Debug("Creating new WakuNode: %v", nodeName)
 	n := &WakuNode{
 		config:   config,
 		nodeName: nodeName,
+	}
+
+	for _, o := range opts {
+		o(n)
 	}
 
 	wg := sync.WaitGroup{}
@@ -405,6 +410,22 @@ func NewWakuNode(config *common.WakuConfig, nodeName string) (*WakuNode, error) 
 	jsonConfig, err := json.Marshal(config)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(n.extraOptions) > 0 {
+		configMap := make(common.ExtraOptions)
+		err = json.Unmarshal(jsonConfig, &configMap)
+		if err != nil {
+			return nil, err
+		}
+
+		for k, v := range n.extraOptions {
+			configMap[k] = v
+		}
+		jsonConfig, err = json.Marshal(configMap)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var cJsonConfig = C.CString(string(jsonConfig))
@@ -1518,7 +1539,7 @@ func GetFreePortIfNeeded(tcpPort int, discV5UDPPort int) (int, int, error) {
 }
 
 // Create & start node
-func StartWakuNode(nodeName string, customCfg *common.WakuConfig) (*WakuNode, error) {
+func StartWakuNode(nodeName string, customCfg *common.WakuConfig, opts ...WakuNodeOption) (*WakuNode, error) {
 
 	Debug("Initializing %s", nodeName)
 
@@ -1543,7 +1564,7 @@ func StartWakuNode(nodeName string, customCfg *common.WakuConfig) (*WakuNode, er
 	}
 
 	Debug("Creating %s", nodeName)
-	node, err := NewWakuNode(&nodeCfg, nodeName)
+	node, err := NewWakuNode(&nodeCfg, nodeName, opts...)
 	if err != nil {
 		Error("Failed to create %s: %v", nodeName, err)
 		return nil, err

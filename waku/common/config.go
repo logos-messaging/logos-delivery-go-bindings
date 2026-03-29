@@ -1,5 +1,7 @@
 package common
 
+type ExtraOptions map[string]interface{}
+
 type WakuConfig struct {
 	Host                        string           `json:"host,omitempty"`
 	Nodekey                     string           `json:"nodekey,omitempty"`
