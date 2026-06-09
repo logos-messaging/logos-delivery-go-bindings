@@ -1,7 +1,7 @@
 //go:build stress
 // +build stress
 
-package waku
+package kernel
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/logos-messaging/logos-delivery-go-bindings/waku/common"
+	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/common"
 	"github.com/stretchr/testify/require"
 
 	//	"go.uber.org/zap/zapcore"

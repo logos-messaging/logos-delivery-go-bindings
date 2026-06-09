@@ -1,4 +1,4 @@
-package waku
+package kernel
 
 import (
 	"context"
@@ -13,9 +13,9 @@ import (
 
 	"github.com/cenkalti/backoff/v3"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/logos-messaging/logos-delivery-go-bindings/waku/common"
-	"github.com/logos-messaging/logos-delivery-go-bindings/waku/pb"
-	"github.com/logos-messaging/logos-delivery-go-bindings/waku/store"
+	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/common"
+	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/pb"
+	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/store"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 )

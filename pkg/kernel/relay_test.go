@@ -1,4 +1,4 @@
-package waku
+package kernel
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v3"
-	"github.com/logos-messaging/logos-delivery-go-bindings/waku/common"
-	"github.com/logos-messaging/logos-delivery-go-bindings/waku/pb"
+	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/common"
+	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/pb"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )

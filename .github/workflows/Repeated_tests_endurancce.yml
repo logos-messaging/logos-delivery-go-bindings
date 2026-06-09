@@ -39,7 +39,7 @@ jobs:
           make libwaku
 
       - name: Build waku bindings
-        run: make -C waku build
+        run: make -C pkg/kernel build
 
       - name: Clean environment
         run: go clean -cache
