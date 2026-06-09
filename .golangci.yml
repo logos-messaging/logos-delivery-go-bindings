@@ -1,0 +1,11 @@
+# golangci-lint v2 configuration.
+# Baseline, low-noise gate for PRs. Tighten over time as the codebase is cleaned up.
+version: "2"
+
+linters:
+  # `standard` = errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+
+formatters:
+  enable:
+    - gofmt

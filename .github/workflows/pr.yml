@@ -1,0 +1,57 @@
+name: PR
+
+on:
+  pull_request:
+    branches:
+      - master
+
+# Cancel superseded runs on the same PR.
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    env:
+      LMN_DIR: ${{ github.workspace }}/vendor/logos-delivery
+      # libwaku (kernel) is required at compile time for the cgo packages.
+      # Updated to also include liblogosdelivery once the messaging package lands.
+      CGO_CFLAGS: -I${{ github.workspace }}/vendor/logos-delivery/library/
+      CGO_LDFLAGS: -L${{ github.workspace }}/vendor/logos-delivery/build/ -lwaku -Wl,-rpath,${{ github.workspace }}/vendor/logos-delivery/build/
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Clone logos-delivery
+        run: |
+          mkdir -p vendor
+          git clone --depth 1 https://github.com/logos-messaging/logos-delivery.git vendor/logos-delivery
+
+      - name: Build libwaku
+        run: make -C vendor/logos-delivery libwaku -j
+
+      - name: go build
+        run: go build ./...
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.4.0
+
+      - name: go test (compile)
+        # Compile every package's test binary without running the (heavy,
+        # integration) suite — that runs nightly in CI.yml. This keeps the PR
+        # gate fast and deterministic while still catching test-code breakage.
+        run: go test -run '^$' ./...
