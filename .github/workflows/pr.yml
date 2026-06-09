@@ -45,6 +45,10 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+      - name: Ensure base ref is available for lint
+        # golangci-lint's new-from-merge-base needs origin/master present.
+        run: git fetch --no-tags origin master
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
