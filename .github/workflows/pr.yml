@@ -14,11 +14,15 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     env:
-      LMN_DIR: ${{ github.workspace }}/vendor/logos-delivery
+      # Clone the logos-delivery checkout OUTSIDE the module tree: a directory
+      # named `vendor/` at the module root would put Go into vendor mode.
+      LMN_DIR: ${{ github.workspace }}/.logos-delivery
       # libwaku (kernel) is required at compile time for the cgo packages.
       # Updated to also include liblogosdelivery once the messaging package lands.
-      CGO_CFLAGS: -I${{ github.workspace }}/vendor/logos-delivery/library/
-      CGO_LDFLAGS: -L${{ github.workspace }}/vendor/logos-delivery/build/ -lwaku -Wl,-rpath,${{ github.workspace }}/vendor/logos-delivery/build/
+      CGO_CFLAGS: -I${{ github.workspace }}/.logos-delivery/library/
+      CGO_LDFLAGS: -L${{ github.workspace }}/.logos-delivery/build/ -lwaku -Wl,-rpath,${{ github.workspace }}/.logos-delivery/build/
+      # Build in module mode; never use a vendor/ dir.
+      GOFLAGS: -mod=mod
 
     steps:
       - name: Check out repository
@@ -32,12 +36,10 @@ jobs:
           go-version: "1.24"
 
       - name: Clone logos-delivery
-        run: |
-          mkdir -p vendor
-          git clone --depth 1 https://github.com/logos-messaging/logos-delivery.git vendor/logos-delivery
+        run: git clone --depth 1 https://github.com/logos-messaging/logos-delivery.git "$LMN_DIR"
 
       - name: Build libwaku
-        run: make -C vendor/logos-delivery libwaku -j
+        run: make -C "$LMN_DIR" libwaku -j
 
       - name: go build
         run: go build ./...
