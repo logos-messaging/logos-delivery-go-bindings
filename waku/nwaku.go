@@ -352,17 +352,17 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/logos-messaging/logos-messaging-go-bindings/waku/timesource"
+	"github.com/logos-messaging/logos-delivery-go-bindings/waku/timesource"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p/core/peer"
 	libp2pproto "github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/logos-messaging/logos-delivery-go-bindings/waku/pb"
+	"github.com/logos-messaging/logos-delivery-go-bindings/waku/utils"
 	"github.com/multiformats/go-multiaddr"
-	"github.com/logos-messaging/logos-messaging-go-bindings/waku/pb"
-	"github.com/logos-messaging/logos-messaging-go-bindings/waku/utils"
 
-	"github.com/logos-messaging/logos-messaging-go-bindings/waku/common"
+	"github.com/logos-messaging/logos-delivery-go-bindings/waku/common"
 )
 
 const requestTimeout = 30 * time.Second
