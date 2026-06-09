@@ -18,9 +18,9 @@ If you have `logos-delivery` checked out, point the build to it:
 
 ```bash
 # path to your existing logos-delivery clone
-export LMN_DIR=/absolute/path/to/logos-delivery
-export CGO_CFLAGS="-I${LMN_DIR}/library"
-export CGO_LDFLAGS="-L${LMN_DIR}/build -lwaku -Wl,-rpath,${LMN_DIR}/build"
+export LOGOS_DELIVERY_DIR=/absolute/path/to/logos-delivery
+export CGO_CFLAGS="-I${LOGOS_DELIVERY_DIR}/library"
+export CGO_LDFLAGS="-L${LOGOS_DELIVERY_DIR}/build -lwaku -Wl,-rpath,${LOGOS_DELIVERY_DIR}/build"
 
 # compile all packages
 make -C waku build

@@ -46,9 +46,9 @@ jobs:
 
       - name: Build waku bindings
         run: |
-          export LMN_DIR=$(pwd)/vendor/logos-delivery
-          export CGO_CFLAGS="-I${LMN_DIR}/library/"
-          export CGO_LDFLAGS="-L${LMN_DIR}/build/ -lwaku -Wl,-rpath,${LMN_DIR}/build/" 
+          export LOGOS_DELIVERY_DIR=$(pwd)/vendor/logos-delivery
+          export CGO_CFLAGS="-I${LOGOS_DELIVERY_DIR}/library/"
+          export CGO_LDFLAGS="-L${LOGOS_DELIVERY_DIR}/build/ -lwaku -Wl,-rpath,${LOGOS_DELIVERY_DIR}/build/" 
           make -C waku build
 
       - name: Increase ulimit
@@ -58,9 +58,9 @@ jobs:
         run: |
           set -euo pipefail
           cd waku
-          export LMN_DIR=$(pwd)/vendor/logos-delivery
-          export CGO_CFLAGS="-I${LMN_DIR}/library/"
-          export CGO_LDFLAGS="-L${LMN_DIR}/build/ -lwaku -Wl,-rpath,${LMN_DIR}/build/"
+          export LOGOS_DELIVERY_DIR=$(pwd)/vendor/logos-delivery
+          export CGO_CFLAGS="-I${LOGOS_DELIVERY_DIR}/library/"
+          export CGO_LDFLAGS="-L${LOGOS_DELIVERY_DIR}/build/ -lwaku -Wl,-rpath,${LOGOS_DELIVERY_DIR}/build/"
           go test -count=10 -p=1 -v -timeout=360m . | tee ../testlogs.log
 
       - name: Upload daily test logs

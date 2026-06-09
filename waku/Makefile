@@ -1,17 +1,17 @@
 # Makefile for Waku Go Bindings
 
 # Path to logos-delivery submodule
-export LMN_DIR ?= $(shell pwd)/../vendor/logos-delivery
+export LOGOS_DELIVERY_DIR ?= $(shell pwd)/../vendor/logos-delivery
 
 # Debugging output
 print-paths:
-	@echo "LMN_DIR: $(LMN_DIR)"
+	@echo "LOGOS_DELIVERY_DIR: $(LOGOS_DELIVERY_DIR)"
 	@echo "HEADER_PATH: $(LIBWAKU_HEADER_PATH)"
 	@echo "LIB_PATH: $(LIBWAKU_LIB_PATH)"
 
 # Default paths for libwaku library and headers (can be overridden)
-export LIBWAKU_HEADER_PATH ?= $(LMN_DIR)/library
-export LIBWAKU_LIB_PATH ?= $(LMN_DIR)/build
+export LIBWAKU_HEADER_PATH ?= $(LOGOS_DELIVERY_DIR)/library
+export LIBWAKU_LIB_PATH ?= $(LOGOS_DELIVERY_DIR)/build
 
 export CGO_CFLAGS := -I$(LIBWAKU_HEADER_PATH)/
 export CGO_LDFLAGS := -L$(LIBWAKU_LIB_PATH)/ -lwaku -Wl,-rpath,$(LIBWAKU_LIB_PATH)/
