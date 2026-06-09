@@ -1,0 +1,18 @@
+# golangci-lint v2 configuration.
+version: "2"
+
+linters:
+  # `standard` = errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  # Only report issues introduced since the merge-base with the target branch.
+  # The legacy kernel wrapper carries pre-existing findings (unchecked
+  # `defer Close()`, dead helpers) and is slated to move (#108) / be removed
+  # post-logos-delivery#3851 — gating it now would drown real signal. New code
+  # (e.g. the messaging package) gets the full linter set.
+  new-from-merge-base: origin/master

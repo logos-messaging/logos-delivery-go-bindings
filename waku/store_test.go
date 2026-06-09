@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v3"
+	"github.com/logos-messaging/logos-delivery-go-bindings/waku/pb"
 	"github.com/stretchr/testify/require"
-	"github.com/logos-messaging/logos-messaging-go-bindings/waku/pb"
 
-	"github.com/logos-messaging/logos-messaging-go-bindings/waku/common"
+	"github.com/logos-messaging/logos-delivery-go-bindings/waku/common"
 	"google.golang.org/protobuf/proto"
 )
 

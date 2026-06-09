@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/logos-messaging/logos-messaging-go-bindings/waku/common"
+	"github.com/logos-messaging/logos-delivery-go-bindings/waku/common"
 	"github.com/stretchr/testify/require"
 )
 

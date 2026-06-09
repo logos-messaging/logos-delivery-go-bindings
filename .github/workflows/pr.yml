@@ -1,0 +1,90 @@
+name: PR
+
+on:
+  pull_request:
+    branches:
+      - master
+
+# Cancel superseded runs on the same PR.
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    env:
+      # Clone the logos-delivery checkout OUTSIDE the module tree: a directory
+      # named `vendor/` at the module root would put Go into vendor mode.
+      LOGOS_DELIVERY_DIR: ${{ github.workspace }}/.logos-delivery
+      # libwaku (kernel) is required at compile time for the cgo packages.
+      # Updated to also include liblogosdelivery once the messaging package lands.
+      CGO_CFLAGS: -I${{ github.workspace }}/.logos-delivery/library/
+      CGO_LDFLAGS: -L${{ github.workspace }}/.logos-delivery/build/ -lwaku -Wl,-rpath,${{ github.workspace }}/.logos-delivery/build/
+      # Build in module mode; never use a vendor/ dir.
+      GOFLAGS: -mod=mod
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Resolve logos-delivery commit
+        # Cache the built kernel keyed on the exact upstream commit, so the
+        # expensive clone + build is skipped while logos-delivery's HEAD is
+        # unchanged. ls-remote gives us the SHA before we clone.
+        id: logos-delivery-rev
+        run: |
+          rev=$(git ls-remote https://github.com/logos-messaging/logos-delivery.git HEAD | cut -f1)
+          echo "rev=$rev" >> "$GITHUB_OUTPUT"
+
+      - name: Cache logos-delivery build
+        id: logos-delivery-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.LOGOS_DELIVERY_DIR }}
+          key: logos-delivery-${{ runner.os }}-${{ steps.logos-delivery-rev.outputs.rev }}
+
+      - name: Clone logos-delivery
+        if: steps.logos-delivery-cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 https://github.com/logos-messaging/logos-delivery.git "$LOGOS_DELIVERY_DIR"
+
+      - name: Build libwaku
+        if: steps.logos-delivery-cache.outputs.cache-hit != 'true'
+        run: make -C "$LOGOS_DELIVERY_DIR" libwaku -j
+
+      - name: go build
+        run: go build ./...
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go mod tidy is clean
+        # `go mod tidy` must be a no-op on a well-maintained module. If it
+        # changes go.mod/go.sum the PR left them out of sync — fail and show
+        # the diff so the author can commit the tidied result.
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Ensure base ref is available for lint
+        # golangci-lint's new-from-merge-base needs origin/master present.
+        run: git fetch --no-tags origin master
+
+      - name: golangci-lint
+        # v7 is required for golangci-lint v2.
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.4.0
+
+      - name: go test (compile)
+        # Compile every package's test binary without running the (heavy,
+        # integration) suite — that runs nightly in CI.yml. This keeps the PR
+        # gate fast and deterministic while still catching test-code breakage.
+        run: go test -run '^$' ./...

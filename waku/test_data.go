@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/logos-messaging/logos-messaging-go-bindings/waku/common"
+	"github.com/logos-messaging/logos-delivery-go-bindings/waku/common"
 	"google.golang.org/protobuf/proto"
 )
 
