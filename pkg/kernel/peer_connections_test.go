@@ -1,11 +1,11 @@
-package waku
+package kernel
 
 import (
 	"slices"
 	"testing"
 	"time"
 
-	"github.com/logos-messaging/logos-delivery-go-bindings/waku/common"
+	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/common"
 	"github.com/stretchr/testify/require"
 )
 

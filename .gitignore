@@ -23,15 +23,18 @@ go.work
 # Generated dependencies and cache
 nimcache
 
-waku/store.sqlite3
+pkg/kernel/store.sqlite3
 
-waku/store.sqlite3-shm
+pkg/kernel/store.sqlite3-shm
 
-waku/store.sqlite3-wal
+pkg/kernel/store.sqlite3-wal
 
-waku/test_repeated_start_stop.log
+pkg/kernel/test_repeated_start_stop.log
 
 third_party/
 
 # JetBrains IDEs
 .idea/
+# Kernel bindings build output
+/pkg/kernel/kernel-bindings
+/pkg/kernel/waku-bindings

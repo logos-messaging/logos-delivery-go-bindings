@@ -23,13 +23,13 @@ export CGO_CFLAGS="-I${LOGOS_DELIVERY_DIR}/library"
 export CGO_LDFLAGS="-L${LOGOS_DELIVERY_DIR}/build -lwaku -Wl,-rpath,${LOGOS_DELIVERY_DIR}/build"
 
 # compile all packages
-make -C waku build
+make -C pkg/kernel build
 
 # run all tests
-make -C waku test
+make -C pkg/kernel test
 
 # run a specific test
-make -C waku test TEST=TestConnectedPeersInfo
+make -C pkg/kernel test TEST=TestConnectedPeersInfo
 ```
 
 ## Development
@@ -39,9 +39,9 @@ When working on this repository itself, `logos-delivery` is included as a git su
 - Initialize and update the submodule, then build `libwaku`
     ```sh
     git submodule update --init --recursive
-    make -C waku build-libwaku
+    make -C pkg/kernel build-libwaku
     ```
 - Build the project. Submodule paths are used by default to find `libwaku`.
     ```shell
-    make -C waku build
+    make -C pkg/kernel build
     ```

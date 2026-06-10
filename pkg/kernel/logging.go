@@ -1,4 +1,4 @@
-package waku
+package kernel
 
 import (
 	"sync"

@@ -1,7 +1,7 @@
 # Makefile for Waku Go Bindings
 
 # Path to logos-delivery submodule
-export LOGOS_DELIVERY_DIR ?= $(shell pwd)/../vendor/logos-delivery
+export LOGOS_DELIVERY_DIR ?= $(shell pwd)/../../vendor/logos-delivery
 
 # Debugging output
 print-paths:
@@ -52,7 +52,7 @@ check-folders:
 
 build:
 	@echo "Building Logos Messaging Go Bindings (manual)..."
-	CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" go build -o waku-bindings .
+	CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" go build -o kernel-bindings .
 
 test: build
 	@echo "Running tests (manual)..."
@@ -65,4 +65,4 @@ test: build
 # Clean up generated files
 clean:
 	@echo "Cleaning up..."
-	@rm -f waku-bindings
+	@rm -f kernel-bindings

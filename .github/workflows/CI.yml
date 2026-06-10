@@ -33,10 +33,10 @@ jobs:
           cd ../..
 
       - name: Verify paths
-        run: make -C waku print-paths
+        run: make -C pkg/kernel print-paths
 
       - name: Verify libwaku artifacts
-        run: make -C waku check-folders
+        run: make -C pkg/kernel check-folders
 
       - name: Install Go dependencies
         run: |
@@ -49,7 +49,7 @@ jobs:
           export LOGOS_DELIVERY_DIR=$(pwd)/vendor/logos-delivery
           export CGO_CFLAGS="-I${LOGOS_DELIVERY_DIR}/library/"
           export CGO_LDFLAGS="-L${LOGOS_DELIVERY_DIR}/build/ -lwaku -Wl,-rpath,${LOGOS_DELIVERY_DIR}/build/" 
-          make -C waku build
+          make -C pkg/kernel build
 
       - name: Increase ulimit
         run: sudo sh -c "ulimit -n 8192"
@@ -57,8 +57,7 @@ jobs:
       - name: Run daily test
         run: |
           set -euo pipefail
-          cd waku
-          export LOGOS_DELIVERY_DIR=$(pwd)/vendor/logos-delivery
+          cd pkg/kernel          export LOGOS_DELIVERY_DIR=$(pwd)/vendor/logos-delivery
           export CGO_CFLAGS="-I${LOGOS_DELIVERY_DIR}/library/"
           export CGO_LDFLAGS="-L${LOGOS_DELIVERY_DIR}/build/ -lwaku -Wl,-rpath,${LOGOS_DELIVERY_DIR}/build/"
           go test -count=10 -p=1 -v -timeout=360m . | tee ../testlogs.log

@@ -1,10 +1,10 @@
-package waku
+package kernel
 
 import (
 	"fmt"
 	"time"
 
-	"github.com/logos-messaging/logos-delivery-go-bindings/waku/common"
+	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/common"
 	"google.golang.org/protobuf/proto"
 )
 
