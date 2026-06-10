@@ -1,4 +1,8 @@
-package ffi
+// Package libwaku is the cgo bridge over libwaku (the legacy Kernel API
+// library): the synchronous request/callback plumbing, the global event
+// callback, and the handle registry. It exposes Go-typed primitives so
+// pkg/kernel stays pure Go.
+package libwaku
 
 /*
 #include <libwaku.h>
@@ -148,15 +152,15 @@ type Handle = unsafe.Pointer
 // RetOK is the return code callbacks report on success.
 const RetOK = C.RET_OK
 
-// WakuEventHandler receives every event libwaku emits for a node: the raw
+// EventHandler receives every event libwaku emits for a node: the raw
 // event JSON when ret == RetOK, an error message otherwise.
-type WakuEventHandler func(ret int, msg string)
+type EventHandler func(ret int, msg string)
 
-// wakuEventHandlers maps a node handle to the Go function that receives its
+// eventHandlers maps a node handle to the Go function that receives its
 // events. The shared C event callback looks the handler up by handle.
 var (
-	wakuEventHandlersMu sync.RWMutex
-	wakuEventHandlers   = make(map[Handle]WakuEventHandler)
+	eventHandlersMu sync.RWMutex
+	eventHandlers   = make(map[Handle]EventHandler)
 )
 
 //export wakuGoCallback
@@ -174,18 +178,18 @@ func wakuGoCallback(ret C.int, msg *C.char, length C.size_t, resp unsafe.Pointer
 
 //export wakuEventCallback
 func wakuEventCallback(ret C.int, msg *C.char, length C.size_t, userData unsafe.Pointer) {
-	wakuEventHandlersMu.RLock()
-	fn := wakuEventHandlers[userData] // userData carries the node's handle
-	wakuEventHandlersMu.RUnlock()
+	eventHandlersMu.RLock()
+	fn := eventHandlers[userData] // userData carries the node's handle
+	eventHandlersMu.RUnlock()
 	if fn != nil {
 		fn(int(ret), C.GoStringN(msg, C.int(length)))
 	}
 }
 
-// wakuCall runs a synchronous libwaku entry point that reports its result
+// call runs a synchronous libwaku entry point that reports its result
 // through the response callback, blocks until it completes, and returns the
 // callback message (on RetOK) or an error built from it.
-func wakuCall(invoke func(resp unsafe.Pointer)) (string, error) {
+func call(invoke func(resp unsafe.Pointer)) (string, error) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	resp := C.allocWakuResp(unsafe.Pointer(&wg))
@@ -201,9 +205,9 @@ func wakuCall(invoke func(resp unsafe.Pointer)) (string, error) {
 	return msg, nil
 }
 
-// WakuNew builds a node from a WakuConfig JSON string and returns its handle.
-// The handle must be released with WakuDestroy.
-func WakuNew(configJSON string) (Handle, error) {
+// New builds a node from a WakuConfig JSON string and returns its handle.
+// The handle must be released with Destroy.
+func New(configJSON string) (Handle, error) {
 	cCfg := C.CString(configJSON)
 	defer C.free(unsafe.Pointer(cCfg))
 
@@ -225,246 +229,246 @@ func WakuNew(configJSON string) (Handle, error) {
 	return Handle(ctx), nil
 }
 
-// SetWakuEventHandler registers fn to receive events for the node and wires up
+// SetEventHandler registers fn to receive events for the node and wires up
 // the underlying C event callback.
-func SetWakuEventHandler(h Handle, fn WakuEventHandler) {
-	wakuEventHandlersMu.Lock()
-	wakuEventHandlers[h] = fn
-	wakuEventHandlersMu.Unlock()
+func SetEventHandler(h Handle, fn EventHandler) {
+	eventHandlersMu.Lock()
+	eventHandlers[h] = fn
+	eventHandlersMu.Unlock()
 	C.cGoWakuSetEventCallback(h)
 }
 
-// WakuStart starts the node.
-func WakuStart(h Handle) error {
-	_, err := wakuCall(func(resp unsafe.Pointer) { C.cGoWakuStart(h, resp) })
+// Start starts the node.
+func Start(h Handle) error {
+	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuStart(h, resp) })
 	return err
 }
 
-// WakuStop stops the node.
-func WakuStop(h Handle) error {
-	_, err := wakuCall(func(resp unsafe.Pointer) { C.cGoWakuStop(h, resp) })
+// Stop stops the node.
+func Stop(h Handle) error {
+	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuStop(h, resp) })
 	return err
 }
 
-// WakuDestroy releases the node context and unregisters its event handler.
-func WakuDestroy(h Handle) error {
-	_, err := wakuCall(func(resp unsafe.Pointer) { C.cGoWakuDestroy(h, resp) })
+// Destroy releases the node context and unregisters its event handler.
+func Destroy(h Handle) error {
+	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuDestroy(h, resp) })
 	if err == nil {
-		wakuEventHandlersMu.Lock()
-		delete(wakuEventHandlers, h)
-		wakuEventHandlersMu.Unlock()
+		eventHandlersMu.Lock()
+		delete(eventHandlers, h)
+		eventHandlersMu.Unlock()
 	}
 	return err
 }
 
-// WakuStartDiscV5 starts DiscV5 peer discovery.
-func WakuStartDiscV5(h Handle) error {
-	_, err := wakuCall(func(resp unsafe.Pointer) { C.cGoWakuStartDiscV5(h, resp) })
+// StartDiscV5 starts DiscV5 peer discovery.
+func StartDiscV5(h Handle) error {
+	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuStartDiscV5(h, resp) })
 	return err
 }
 
-// WakuStopDiscV5 stops DiscV5 peer discovery.
-func WakuStopDiscV5(h Handle) error {
-	_, err := wakuCall(func(resp unsafe.Pointer) { C.cGoWakuStopDiscV5(h, resp) })
+// StopDiscV5 stops DiscV5 peer discovery.
+func StopDiscV5(h Handle) error {
+	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuStopDiscV5(h, resp) })
 	return err
 }
 
-// WakuVersion returns the libwaku version string.
-func WakuVersion(h Handle) (string, error) {
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuVersion(h, resp) })
+// Version returns the libwaku version string.
+func Version(h Handle) (string, error) {
+	return call(func(resp unsafe.Pointer) { C.cGoWakuVersion(h, resp) })
 }
 
-// WakuRelayPublish publishes a WakuMessage JSON on a pubsub topic and returns
+// RelayPublish publishes a WakuMessage JSON on a pubsub topic and returns
 // the message hash.
-func WakuRelayPublish(h Handle, pubsubTopic, messageJSON string, timeoutMs int) (string, error) {
+func RelayPublish(h Handle, pubsubTopic, messageJSON string, timeoutMs int) (string, error) {
 	cTopic := C.CString(pubsubTopic)
 	cMsg := C.CString(messageJSON)
 	defer C.free(unsafe.Pointer(cTopic))
 	defer C.free(unsafe.Pointer(cMsg))
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuRelayPublish(h, cTopic, cMsg, C.int(timeoutMs), resp) })
+	return call(func(resp unsafe.Pointer) { C.cGoWakuRelayPublish(h, cTopic, cMsg, C.int(timeoutMs), resp) })
 }
 
-// WakuRelaySubscribe subscribes the node to a pubsub topic.
-func WakuRelaySubscribe(h Handle, pubsubTopic string) error {
+// RelaySubscribe subscribes the node to a pubsub topic.
+func RelaySubscribe(h Handle, pubsubTopic string) error {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	_, err := wakuCall(func(resp unsafe.Pointer) { C.cGoWakuRelaySubscribe(h, cTopic, resp) })
+	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuRelaySubscribe(h, cTopic, resp) })
 	return err
 }
 
-// WakuRelayAddProtectedShard registers the hex-encoded public key allowed to
+// RelayAddProtectedShard registers the hex-encoded public key allowed to
 // sign messages on a protected shard.
-func WakuRelayAddProtectedShard(h Handle, clusterID, shardID int, publicKeyHex string) error {
+func RelayAddProtectedShard(h Handle, clusterID, shardID int, publicKeyHex string) error {
 	cPublicKey := C.CString(publicKeyHex)
 	defer C.free(unsafe.Pointer(cPublicKey))
-	_, err := wakuCall(func(resp unsafe.Pointer) {
+	_, err := call(func(resp unsafe.Pointer) {
 		C.cGoWakuRelayAddProtectedShard(h, C.int(clusterID), C.int(shardID), cPublicKey, resp)
 	})
 	return err
 }
 
-// WakuRelayUnsubscribe unsubscribes the node from a pubsub topic.
-func WakuRelayUnsubscribe(h Handle, pubsubTopic string) error {
+// RelayUnsubscribe unsubscribes the node from a pubsub topic.
+func RelayUnsubscribe(h Handle, pubsubTopic string) error {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	_, err := wakuCall(func(resp unsafe.Pointer) { C.cGoWakuRelayUnsubscribe(h, cTopic, resp) })
+	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuRelayUnsubscribe(h, cTopic, resp) })
 	return err
 }
 
-// WakuConnect dials a peer multiaddress.
-func WakuConnect(h Handle, peerMultiAddr string, timeoutMs int) error {
+// Connect dials a peer multiaddress.
+func Connect(h Handle, peerMultiAddr string, timeoutMs int) error {
 	cAddr := C.CString(peerMultiAddr)
 	defer C.free(unsafe.Pointer(cAddr))
-	_, err := wakuCall(func(resp unsafe.Pointer) { C.cGoWakuConnect(h, cAddr, C.int(timeoutMs), resp) })
+	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuConnect(h, cAddr, C.int(timeoutMs), resp) })
 	return err
 }
 
-// WakuDialPeer dials a peer multiaddress over a specific protocol.
-func WakuDialPeer(h Handle, peerMultiAddr, protocol string, timeoutMs int) error {
+// DialPeer dials a peer multiaddress over a specific protocol.
+func DialPeer(h Handle, peerMultiAddr, protocol string, timeoutMs int) error {
 	cAddr := C.CString(peerMultiAddr)
 	cProtocol := C.CString(protocol)
 	defer C.free(unsafe.Pointer(cAddr))
 	defer C.free(unsafe.Pointer(cProtocol))
-	_, err := wakuCall(func(resp unsafe.Pointer) { C.cGoWakuDialPeer(h, cAddr, cProtocol, C.int(timeoutMs), resp) })
+	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuDialPeer(h, cAddr, cProtocol, C.int(timeoutMs), resp) })
 	return err
 }
 
-// WakuDialPeerByID dials a known peer id over a specific protocol.
-func WakuDialPeerByID(h Handle, peerID, protocol string, timeoutMs int) error {
+// DialPeerByID dials a known peer id over a specific protocol.
+func DialPeerByID(h Handle, peerID, protocol string, timeoutMs int) error {
 	cPeerID := C.CString(peerID)
 	cProtocol := C.CString(protocol)
 	defer C.free(unsafe.Pointer(cPeerID))
 	defer C.free(unsafe.Pointer(cProtocol))
-	_, err := wakuCall(func(resp unsafe.Pointer) { C.cGoWakuDialPeerById(h, cPeerID, cProtocol, C.int(timeoutMs), resp) })
+	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuDialPeerById(h, cPeerID, cProtocol, C.int(timeoutMs), resp) })
 	return err
 }
 
-// WakuDisconnectPeerByID drops the connection to a peer.
-func WakuDisconnectPeerByID(h Handle, peerID string) error {
+// DisconnectPeerByID drops the connection to a peer.
+func DisconnectPeerByID(h Handle, peerID string) error {
 	cPeerID := C.CString(peerID)
 	defer C.free(unsafe.Pointer(cPeerID))
-	_, err := wakuCall(func(resp unsafe.Pointer) { C.cGoWakuDisconnectPeerById(h, cPeerID, resp) })
+	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuDisconnectPeerById(h, cPeerID, resp) })
 	return err
 }
 
-// WakuDisconnectAllPeers drops all peer connections.
-func WakuDisconnectAllPeers(h Handle) error {
-	_, err := wakuCall(func(resp unsafe.Pointer) { C.cGoWakuDisconnectAllPeers(h, resp) })
+// DisconnectAllPeers drops all peer connections.
+func DisconnectAllPeers(h Handle) error {
+	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuDisconnectAllPeers(h, resp) })
 	return err
 }
 
-// WakuListenAddresses returns the node's listen multiaddresses as a
+// ListenAddresses returns the node's listen multiaddresses as a
 // comma-separated list.
-func WakuListenAddresses(h Handle) (string, error) {
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuListenAddresses(h, resp) })
+func ListenAddresses(h Handle) (string, error) {
+	return call(func(resp unsafe.Pointer) { C.cGoWakuListenAddresses(h, resp) })
 }
 
-// WakuGetMyENR returns the node's ENR record.
-func WakuGetMyENR(h Handle) (string, error) {
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuGetMyENR(h, resp) })
+// GetMyENR returns the node's ENR record.
+func GetMyENR(h Handle) (string, error) {
+	return call(func(resp unsafe.Pointer) { C.cGoWakuGetMyENR(h, resp) })
 }
 
-// WakuGetMyPeerID returns the node's peer id.
-func WakuGetMyPeerID(h Handle) (string, error) {
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuGetMyPeerId(h, resp) })
+// GetMyPeerID returns the node's peer id.
+func GetMyPeerID(h Handle) (string, error) {
+	return call(func(resp unsafe.Pointer) { C.cGoWakuGetMyPeerId(h, resp) })
 }
 
-// WakuPingPeer pings a peer (comma-separated multiaddresses) and returns the
+// PingPeer pings a peer (comma-separated multiaddresses) and returns the
 // round-trip time in nanoseconds.
-func WakuPingPeer(h Handle, peerAddrs string, timeoutMs int) (string, error) {
+func PingPeer(h Handle, peerAddrs string, timeoutMs int) (string, error) {
 	cAddr := C.CString(peerAddrs)
 	defer C.free(unsafe.Pointer(cAddr))
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuPingPeer(h, cAddr, C.int(timeoutMs), resp) })
+	return call(func(resp unsafe.Pointer) { C.cGoWakuPingPeer(h, cAddr, C.int(timeoutMs), resp) })
 }
 
-// WakuGetPeersInMesh returns the relay mesh peer ids for a pubsub topic as a
+// GetPeersInMesh returns the relay mesh peer ids for a pubsub topic as a
 // comma-separated list.
-func WakuGetPeersInMesh(h Handle, pubsubTopic string) (string, error) {
+func GetPeersInMesh(h Handle, pubsubTopic string) (string, error) {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuGetPeersInMesh(h, cTopic, resp) })
+	return call(func(resp unsafe.Pointer) { C.cGoWakuGetPeersInMesh(h, cTopic, resp) })
 }
 
-// WakuGetNumPeersInMesh returns the relay mesh peer count for a pubsub topic.
-func WakuGetNumPeersInMesh(h Handle, pubsubTopic string) (string, error) {
+// GetNumPeersInMesh returns the relay mesh peer count for a pubsub topic.
+func GetNumPeersInMesh(h Handle, pubsubTopic string) (string, error) {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuGetNumPeersInMesh(h, cTopic, resp) })
+	return call(func(resp unsafe.Pointer) { C.cGoWakuGetNumPeersInMesh(h, cTopic, resp) })
 }
 
-// WakuGetNumConnectedRelayPeers returns the connected relay peer count for a
+// GetNumConnectedRelayPeers returns the connected relay peer count for a
 // pubsub topic.
-func WakuGetNumConnectedRelayPeers(h Handle, pubsubTopic string) (string, error) {
+func GetNumConnectedRelayPeers(h Handle, pubsubTopic string) (string, error) {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuGetNumConnectedRelayPeers(h, cTopic, resp) })
+	return call(func(resp unsafe.Pointer) { C.cGoWakuGetNumConnectedRelayPeers(h, cTopic, resp) })
 }
 
-// WakuGetConnectedRelayPeers returns the connected relay peer ids for a pubsub
+// GetConnectedRelayPeers returns the connected relay peer ids for a pubsub
 // topic as a comma-separated list.
-func WakuGetConnectedRelayPeers(h Handle, pubsubTopic string) (string, error) {
+func GetConnectedRelayPeers(h Handle, pubsubTopic string) (string, error) {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuGetConnectedRelayPeers(h, cTopic, resp) })
+	return call(func(resp unsafe.Pointer) { C.cGoWakuGetConnectedRelayPeers(h, cTopic, resp) })
 }
 
-// WakuGetConnectedPeers returns the connected peer ids as a comma-separated
+// GetConnectedPeers returns the connected peer ids as a comma-separated
 // list.
-func WakuGetConnectedPeers(h Handle) (string, error) {
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuGetConnectedPeers(h, resp) })
+func GetConnectedPeers(h Handle) (string, error) {
+	return call(func(resp unsafe.Pointer) { C.cGoWakuGetConnectedPeers(h, resp) })
 }
 
-// WakuGetPeerIDsFromPeerStore returns the peer-store peer ids as a
+// GetPeerIDsFromPeerStore returns the peer-store peer ids as a
 // comma-separated list.
-func WakuGetPeerIDsFromPeerStore(h Handle) (string, error) {
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuGetPeerIdsFromPeerStore(h, resp) })
+func GetPeerIDsFromPeerStore(h Handle) (string, error) {
+	return call(func(resp unsafe.Pointer) { C.cGoWakuGetPeerIdsFromPeerStore(h, resp) })
 }
 
-// WakuGetConnectedPeersInfo returns the connected peers' info as JSON.
-func WakuGetConnectedPeersInfo(h Handle) (string, error) {
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuGetConnectedPeersInfo(h, resp) })
+// GetConnectedPeersInfo returns the connected peers' info as JSON.
+func GetConnectedPeersInfo(h Handle) (string, error) {
+	return call(func(resp unsafe.Pointer) { C.cGoWakuGetConnectedPeersInfo(h, resp) })
 }
 
-// WakuStoreQuery runs a store query (JSON) against a peer (comma-separated
+// StoreQuery runs a store query (JSON) against a peer (comma-separated
 // multiaddresses) and returns the response JSON.
-func WakuStoreQuery(h Handle, queryJSON, peerAddrs string, timeoutMs int) (string, error) {
+func StoreQuery(h Handle, queryJSON, peerAddrs string, timeoutMs int) (string, error) {
 	cQuery := C.CString(queryJSON)
 	cAddr := C.CString(peerAddrs)
 	defer C.free(unsafe.Pointer(cQuery))
 	defer C.free(unsafe.Pointer(cAddr))
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuStoreQuery(h, cQuery, cAddr, C.int(timeoutMs), resp) })
+	return call(func(resp unsafe.Pointer) { C.cGoWakuStoreQuery(h, cQuery, cAddr, C.int(timeoutMs), resp) })
 }
 
-// WakuPeerExchangeRequest asks peer exchange for numPeers peers and returns
+// PeerExchangeRequest asks peer exchange for numPeers peers and returns
 // the number of received peers.
-func WakuPeerExchangeRequest(h Handle, numPeers uint64) (string, error) {
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuPeerExchangeQuery(h, C.uint64_t(numPeers), resp) })
+func PeerExchangeRequest(h Handle, numPeers uint64) (string, error) {
+	return call(func(resp unsafe.Pointer) { C.cGoWakuPeerExchangeQuery(h, C.uint64_t(numPeers), resp) })
 }
 
-// WakuGetPeerIDsByProtocol returns the peer ids supporting a protocol as a
+// GetPeerIDsByProtocol returns the peer ids supporting a protocol as a
 // comma-separated list.
-func WakuGetPeerIDsByProtocol(h Handle, protocol string) (string, error) {
+func GetPeerIDsByProtocol(h Handle, protocol string) (string, error) {
 	cProtocol := C.CString(protocol)
 	defer C.free(unsafe.Pointer(cProtocol))
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuGetPeerIdsByProtocol(h, cProtocol, resp) })
+	return call(func(resp unsafe.Pointer) { C.cGoWakuGetPeerIdsByProtocol(h, cProtocol, resp) })
 }
 
-// WakuDnsDiscovery resolves an ENR tree URL via DNS discovery and returns the
+// DnsDiscovery resolves an ENR tree URL via DNS discovery and returns the
 // discovered multiaddresses as a comma-separated list.
-func WakuDnsDiscovery(h Handle, enrTreeURL, nameDNSServer string, timeoutMs int) (string, error) {
+func DnsDiscovery(h Handle, enrTreeURL, nameDNSServer string, timeoutMs int) (string, error) {
 	cEnrTree := C.CString(enrTreeURL)
 	cDNSServer := C.CString(nameDNSServer)
 	defer C.free(unsafe.Pointer(cEnrTree))
 	defer C.free(unsafe.Pointer(cDNSServer))
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuDnsDiscovery(h, cEnrTree, cDNSServer, C.int(timeoutMs), resp) })
+	return call(func(resp unsafe.Pointer) { C.cGoWakuDnsDiscovery(h, cEnrTree, cDNSServer, C.int(timeoutMs), resp) })
 }
 
-// WakuIsOnline reports the node's online state ("true"/"false").
-func WakuIsOnline(h Handle) (string, error) {
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuIsOnline(h, resp) })
+// IsOnline reports the node's online state ("true"/"false").
+func IsOnline(h Handle) (string, error) {
+	return call(func(resp unsafe.Pointer) { C.cGoWakuIsOnline(h, resp) })
 }
 
-// WakuGetMetrics returns the node's metrics in Prometheus text format.
-func WakuGetMetrics(h Handle) (string, error) {
-	return wakuCall(func(resp unsafe.Pointer) { C.cGoWakuGetMetrics(h, resp) })
+// GetMetrics returns the node's metrics in Prometheus text format.
+func GetMetrics(h Handle) (string, error) {
+	return call(func(resp unsafe.Pointer) { C.cGoWakuGetMetrics(h, resp) })
 }

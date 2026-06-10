@@ -1,8 +1,7 @@
-// Package ffi holds the cgo bridge over the logos-delivery C libraries: the
-// synchronous request/callback plumbing, the global event callback, and the
-// handle registry. It exposes Go-typed primitives so the public packages
-// (e.g. messaging) stay pure Go.
+// Package ffi groups the cgo bridges over the logos-delivery C libraries.
 //
-// Currently holds the Kernel API bridge (libwaku); the Messaging API bindings
-// (over liblogosdelivery) land here in a follow-up.
+// Each C library gets its own subpackage (libwaku now; liblogosdelivery in a
+// follow-up) so that a binary links exactly the libraries it imports — the
+// two .so files carry overlapping symbols and must never be linked together
+// (until logos-delivery#3851 consolidates them).
 package ffi
