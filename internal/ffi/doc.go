@@ -3,6 +3,6 @@
 // handle registry. It exposes Go-typed primitives so the public packages
 // (e.g. messaging) stay pure Go.
 //
-// Scaffolding only for now; the Messaging API bindings land here (over
-// liblogosdelivery) in a follow-up.
+// Currently holds the Kernel API bridge (libwaku); the Messaging API bindings
+// (over liblogosdelivery) land here in a follow-up.
 package ffi
