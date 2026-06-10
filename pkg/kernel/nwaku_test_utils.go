@@ -18,7 +18,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/common"
 	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/pb"
-	"github.com/logos-messaging/logos-delivery-go-bindings/utils"
+	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/utils"
 	"google.golang.org/protobuf/proto"
 )
 

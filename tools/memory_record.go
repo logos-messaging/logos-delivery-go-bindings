@@ -9,15 +9,15 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
-
-	"github.com/logos-messaging/logos-delivery-go-bindings/utils"
 )
 
 var (
 	testName  string
 	iteration int
 	phase     string
+	mu        sync.Mutex
 )
 
 func main() {
@@ -30,13 +30,13 @@ func main() {
 	runtime.ReadMemStats(&memStats)
 	heapKB := memStats.HeapAlloc / 1024
 
-	rssKB, err := utils.GetRSSKB()
+	rssKB, err := GetRSSKB()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to get RSS:", err)
 		rssKB = 0
 	}
 
-	if err := utils.RecordMemoryMetricsCSV(testName, iteration, phase, heapKB, rssKB); err != nil {
+	if err := RecordMemoryMetricsCSV(testName, iteration, phase, heapKB, rssKB); err != nil {
 		fmt.Fprintln(os.Stderr, "Error recording metrics:", err)
 		os.Exit(1)
 	}
@@ -50,7 +50,7 @@ func RecordMemoryMetricsCSV(testName string, iter int, phase string, heapKB, rss
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	w := csv.NewWriter(f)
 	defer w.Flush()
@@ -83,7 +83,7 @@ func GetRSSKB() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	data, err := io.ReadAll(f)
 	if err != nil {
 		return 0, err
