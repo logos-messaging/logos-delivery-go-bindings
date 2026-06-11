@@ -54,11 +54,12 @@ jobs:
             echo "Iteration $i: measuring memory BEFORE the tests..."
             go run tools/memory_record.go --iteration $i --phase start
             echo "Running tests (iteration $i)..."
-            go test -v -tags '!stress' ./...
+            go test -v -tags=stress ./...
             echo "Iteration $i: measuring memory AFTER the tests..."
             go run tools/memory_record.go --iteration $i --phase end
           done
           set -e
+
 
       - name: Upload memory_metrics.csv
         uses: actions/upload-artifact@v4
