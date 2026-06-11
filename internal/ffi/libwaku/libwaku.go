@@ -5,6 +5,7 @@
 package libwaku
 
 /*
+#cgo LDFLAGS: -lwaku
 #include <libwaku.h>
 #include <stdlib.h>
 

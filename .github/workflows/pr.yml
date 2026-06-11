@@ -17,10 +17,13 @@ jobs:
       # Clone the logos-delivery checkout OUTSIDE the module tree: a directory
       # named `vendor/` at the module root would put Go into vendor mode.
       LOGOS_DELIVERY_DIR: ${{ github.workspace }}/.logos-delivery
-      # libwaku (kernel) is required at compile time for the cgo packages.
-      # Updated to also include liblogosdelivery once the messaging package lands.
-      CGO_CFLAGS: -I${{ github.workspace }}/.logos-delivery/library/
-      CGO_LDFLAGS: -L${{ github.workspace }}/.logos-delivery/build/ -lwaku -Wl,-rpath,${{ github.workspace }}/.logos-delivery/build/
+      # Both kernel (libwaku) and messaging (liblogosdelivery) headers are on
+      # the include path so every package compiles. `-l` is deliberately NOT
+      # set here: each internal/ffi subpackage selects its own library via a
+      # `#cgo LDFLAGS` directive, so no binary links both libs (they export
+      # overlapping symbols until logos-delivery#3851).
+      CGO_CFLAGS: -I${{ github.workspace }}/.logos-delivery/library/ -I${{ github.workspace }}/.logos-delivery/liblogosdelivery/
+      CGO_LDFLAGS: -L${{ github.workspace }}/.logos-delivery/build/ -Wl,-rpath,${{ github.workspace }}/.logos-delivery/build/
       # Build in module mode; never use a vendor/ dir.
       GOFLAGS: -mod=mod
 
@@ -36,7 +39,7 @@ jobs:
           go-version: "1.24"
 
       - name: Resolve logos-delivery commit
-        # Cache the built kernel keyed on the exact upstream commit, so the
+        # Cache the built libraries keyed on the exact upstream commit, so the
         # expensive clone + build is skipped while logos-delivery's HEAD is
         # unchanged. ls-remote gives us the SHA before we clone.
         id: logos-delivery-rev
@@ -55,9 +58,9 @@ jobs:
         if: steps.logos-delivery-cache.outputs.cache-hit != 'true'
         run: git clone --depth 1 https://github.com/logos-messaging/logos-delivery.git "$LOGOS_DELIVERY_DIR"
 
-      - name: Build libwaku
+      - name: Build libwaku + liblogosdelivery
         if: steps.logos-delivery-cache.outputs.cache-hit != 'true'
-        run: make -C "$LOGOS_DELIVERY_DIR" libwaku -j
+        run: make -C "$LOGOS_DELIVERY_DIR" libwaku liblogosdelivery -j
 
       - name: go build
         run: go build ./...
@@ -83,8 +86,11 @@ jobs:
         with:
           version: v2.4.0
 
-      - name: go test (compile)
-        # Compile every package's test binary without running the (heavy,
-        # integration) suite — that runs nightly in CI.yml. This keeps the PR
-        # gate fast and deterministic while still catching test-code breakage.
-        run: go test -run '^$' ./...
+      - name: go test messaging (run)
+        # Fast, network-free unit tests for the Messaging API + its ffi bridge.
+        run: go test ./pkg/messaging/... ./internal/ffi/liblogosdelivery/...
+
+      - name: go test kernel (compile)
+        # The kernel suite is heavy integration (runs nightly in CI.yml), so
+        # only compile its test binaries here.
+        run: go test -run '^$' ./pkg/kernel/... ./internal/ffi/libwaku/...
