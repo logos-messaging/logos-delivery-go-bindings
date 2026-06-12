@@ -9,22 +9,24 @@ print-paths:
 	@echo "HEADER_PATH: $(LIBWAKU_HEADER_PATH)"
 	@echo "LIB_PATH: $(LIBWAKU_LIB_PATH)"
 
-# Default paths for libwaku library and headers (can be overridden)
-export LIBWAKU_HEADER_PATH ?= $(LOGOS_DELIVERY_DIR)/library
+# Default paths for the liblogosdelivery library and headers (can be
+# overridden). Since logos-delivery#3949 the waku_* ABI ships inside the
+# unified liblogosdelivery, so library/ is gone and -lwaku no longer exists.
+export LIBWAKU_HEADER_PATH ?= $(LOGOS_DELIVERY_DIR)/liblogosdelivery
 export LIBWAKU_LIB_PATH ?= $(LOGOS_DELIVERY_DIR)/build
 
 export CGO_CFLAGS := -I$(LIBWAKU_HEADER_PATH)/
-export CGO_LDFLAGS := -L$(LIBWAKU_LIB_PATH)/ -lwaku -Wl,-rpath,$(LIBWAKU_LIB_PATH)/
+export CGO_LDFLAGS := -L$(LIBWAKU_LIB_PATH)/ -llogosdelivery -Wl,-rpath,$(LIBWAKU_LIB_PATH)/
 
 # Expected files
-HEADER_FILE := $(LIBWAKU_HEADER_PATH)/libwaku.h
-LIB_FILES   := $(wildcard $(LIBWAKU_LIB_PATH)/libwaku.*)
+HEADER_FILE := $(LIBWAKU_HEADER_PATH)/liblogosdelivery.h
+LIB_FILES   := $(wildcard $(LIBWAKU_LIB_PATH)/liblogosdelivery.*)
 
 .PHONY: all clean prepare build test build-auto test-auto build-libwaku
 
 # Validate necessary folders and files
 check-folders:
-	@echo Checking libwaku header directory ...
+	@echo Checking liblogosdelivery header directory ...
 	@if [ -z "$(LIBWAKU_HEADER_PATH)" ]; then \
 		echo "ERROR: LIBWAKU_HEADER_PATH not set"; exit 1; \
 	fi
@@ -32,7 +34,7 @@ check-folders:
 		echo "ERROR: Header path does not exist: $(LIBWAKU_HEADER_PATH)"; exit 1; \
 	fi
 
-	@echo Checking libwaku lib directory ...
+	@echo Checking liblogosdelivery lib directory ...
 	@if [ -z "$(LIBWAKU_LIB_PATH)" ]; then \
 		echo "ERROR: LIBWAKU_LIB_PATH not set"; exit 1; \
 	fi
@@ -40,14 +42,14 @@ check-folders:
 		echo "ERROR: Library path does not exist: $(LIBWAKU_LIB_PATH)"; exit 1; \
 	fi
 
-	@echo Checking for libwaku.h ...
+	@echo Checking for liblogosdelivery.h ...
 	@if [ ! -f "$(HEADER_FILE)" ]; then \
-		echo "ERROR: libwaku.h not found at: $(HEADER_FILE)"; exit 1; \
+		echo "ERROR: liblogosdelivery.h not found at: $(HEADER_FILE)"; exit 1; \
 	fi
 
-	@echo Checking for libwaku library file ...
+	@echo Checking for liblogosdelivery library file ...
 	@if [ -z "$(LIB_FILES)" ]; then \
-		echo "ERROR: No libwaku library file found in: $(LIBWAKU_LIB_PATH)"; exit 1; \
+		echo "ERROR: No liblogosdelivery library file found in: $(LIBWAKU_LIB_PATH)"; exit 1; \
 	fi
 
 build:
