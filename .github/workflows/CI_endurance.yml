@@ -33,10 +33,10 @@ jobs:
       - name: Vendor Go dependencies
         run: go mod vendor
 
-      - name: Build libwaku
+      - name: Build liblogosdelivery
         run: |
           cd vendor/logos-delivery
-          make libwaku
+          make liblogosdelivery
 
       - name: Build waku bindings
         run: make -C pkg/kernel build
@@ -92,10 +92,10 @@ jobs:
       - name: Vendor Go dependencies
         run: go mod vendor
 
-      - name: Build libwaku
+      - name: Build liblogosdelivery
         run: |
           cd vendor/logos-delivery
-          make libwaku
+          make liblogosdelivery
 
       - name: Build waku bindings
         run: make -C pkg/kernel build

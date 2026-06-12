@@ -23,19 +23,20 @@ jobs:
       - name: Clone logos-delivery
         run: |
           mkdir -p vendor
-          git clone --depth 1 https://github.com/logos-messaging/logos-delivery.git vendor/logos-delivery
+          # TODO(logos-delivery#3949): drop --branch once unify-libs is on master.
+          git clone --depth 1 --branch unify-libs https://github.com/logos-messaging/logos-delivery.git vendor/logos-delivery
 
-      - name: Build libwaku
+      - name: Build liblogosdelivery
         run: |
           cd vendor/logos-delivery
-          echo "Building libwaku in $(pwd)"
-          make libwaku -j
+          echo "Building liblogosdelivery in $(pwd)"
+          make liblogosdelivery -j
           cd ../..
 
       - name: Verify paths
         run: make -C pkg/kernel print-paths
 
-      - name: Verify libwaku artifacts
+      - name: Verify liblogosdelivery artifacts
         run: make -C pkg/kernel check-folders
 
       - name: Install Go dependencies
@@ -47,8 +48,8 @@ jobs:
       - name: Build waku bindings
         run: |
           export LOGOS_DELIVERY_DIR=$(pwd)/vendor/logos-delivery
-          export CGO_CFLAGS="-I${LOGOS_DELIVERY_DIR}/library/"
-          export CGO_LDFLAGS="-L${LOGOS_DELIVERY_DIR}/build/ -lwaku -Wl,-rpath,${LOGOS_DELIVERY_DIR}/build/" 
+          export CGO_CFLAGS="-I${LOGOS_DELIVERY_DIR}/liblogosdelivery/"
+          export CGO_LDFLAGS="-L${LOGOS_DELIVERY_DIR}/build/ -llogosdelivery -Wl,-rpath,${LOGOS_DELIVERY_DIR}/build/"
           make -C pkg/kernel build
 
       - name: Increase ulimit
@@ -57,9 +58,10 @@ jobs:
       - name: Run daily test
         run: |
           set -euo pipefail
-          cd pkg/kernel          export LOGOS_DELIVERY_DIR=$(pwd)/vendor/logos-delivery
-          export CGO_CFLAGS="-I${LOGOS_DELIVERY_DIR}/library/"
-          export CGO_LDFLAGS="-L${LOGOS_DELIVERY_DIR}/build/ -lwaku -Wl,-rpath,${LOGOS_DELIVERY_DIR}/build/"
+          export LOGOS_DELIVERY_DIR=$(pwd)/vendor/logos-delivery
+          export CGO_CFLAGS="-I${LOGOS_DELIVERY_DIR}/liblogosdelivery/"
+          export CGO_LDFLAGS="-L${LOGOS_DELIVERY_DIR}/build/ -llogosdelivery -Wl,-rpath,${LOGOS_DELIVERY_DIR}/build/"
+          cd pkg/kernel
           go test -count=10 -p=1 -v -timeout=360m . | tee ../testlogs.log
 
       - name: Upload daily test logs

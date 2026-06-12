@@ -17,12 +17,12 @@ jobs:
       # Clone the logos-delivery checkout OUTSIDE the module tree: a directory
       # named `vendor/` at the module root would put Go into vendor mode.
       LOGOS_DELIVERY_DIR: ${{ github.workspace }}/.logos-delivery
-      # Both kernel (libwaku) and messaging (liblogosdelivery) headers are on
-      # the include path so every package compiles. `-l` is deliberately NOT
-      # set here: each internal/ffi subpackage selects its own library via a
-      # `#cgo LDFLAGS` directive, so no binary links both libs (they export
-      # overlapping symbols until logos-delivery#3851).
-      CGO_CFLAGS: -I${{ github.workspace }}/.logos-delivery/library/ -I${{ github.workspace }}/.logos-delivery/liblogosdelivery/
+      # Since logos-delivery#3949 unified the libraries, the waku_* and
+      # logosdelivery_* ABIs both live in liblogosdelivery, so a single header
+      # path covers every package. `-l` is deliberately NOT set here: each
+      # internal/ffi subpackage selects the library via its own `#cgo LDFLAGS`
+      # directive.
+      CGO_CFLAGS: -I${{ github.workspace }}/.logos-delivery/liblogosdelivery/
       CGO_LDFLAGS: -L${{ github.workspace }}/.logos-delivery/build/ -Wl,-rpath,${{ github.workspace }}/.logos-delivery/build/
       # Build in module mode; never use a vendor/ dir.
       GOFLAGS: -mod=mod
@@ -44,7 +44,9 @@ jobs:
         # unchanged. ls-remote gives us the SHA before we clone.
         id: logos-delivery-rev
         run: |
-          rev=$(git ls-remote https://github.com/logos-messaging/logos-delivery.git HEAD | cut -f1)
+          # TODO(logos-delivery#3949): revert to HEAD once the unify-libs PR
+          # merges into logos-delivery master.
+          rev=$(git ls-remote https://github.com/logos-messaging/logos-delivery.git refs/heads/unify-libs | cut -f1)
           echo "rev=$rev" >> "$GITHUB_OUTPUT"
 
       - name: Cache logos-delivery build
@@ -56,11 +58,12 @@ jobs:
 
       - name: Clone logos-delivery
         if: steps.logos-delivery-cache.outputs.cache-hit != 'true'
-        run: git clone --depth 1 https://github.com/logos-messaging/logos-delivery.git "$LOGOS_DELIVERY_DIR"
+        # TODO(logos-delivery#3949): drop --branch once unify-libs is on master.
+        run: git clone --depth 1 --branch unify-libs https://github.com/logos-messaging/logos-delivery.git "$LOGOS_DELIVERY_DIR"
 
-      - name: Build libwaku + liblogosdelivery
+      - name: Build liblogosdelivery
         if: steps.logos-delivery-cache.outputs.cache-hit != 'true'
-        run: make -C "$LOGOS_DELIVERY_DIR" libwaku liblogosdelivery -j
+        run: make -C "$LOGOS_DELIVERY_DIR" liblogosdelivery -j
 
       - name: go build
         run: go build ./...
