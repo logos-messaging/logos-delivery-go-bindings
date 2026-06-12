@@ -4,9 +4,10 @@
 // handle->handler registry, and exposes Go-typed primitives so the public
 // messaging package stays pure Go.
 //
-// It links liblogosdelivery via a #cgo directive; it must never be linked into
-// the same binary as the libwaku bridge (overlapping symbols) until
-// logos-delivery#3851 consolidates the two libraries.
+// It links liblogosdelivery via a #cgo directive. Since logos-delivery#3949
+// unified the libraries, liblogosdelivery exposes both the logosdelivery_* and
+// the legacy waku_* ABIs, so this bridge and the libwaku bridge can safely
+// share a binary.
 package liblogosdelivery
 
 /*

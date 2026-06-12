@@ -1,12 +1,16 @@
-// Package libwaku is the cgo bridge over libwaku (the legacy Kernel API
-// library): the synchronous request/callback plumbing, the global event
-// callback, and the handle registry. It exposes Go-typed primitives so
-// pkg/kernel stays pure Go.
+// Package libwaku is the cgo bridge over the legacy Kernel API (the waku_*
+// ABI): the synchronous request/callback plumbing, the global event callback,
+// and the handle registry. It exposes Go-typed primitives so pkg/kernel stays
+// pure Go.
+//
+// Since logos-delivery#3949 the waku_* ABI ships inside the unified
+// liblogosdelivery library (libwaku is gone), so this bridge links
+// liblogosdelivery and includes its header.
 package libwaku
 
 /*
-#cgo LDFLAGS: -lwaku
-#include <libwaku.h>
+#cgo LDFLAGS: -llogosdelivery
+#include <liblogosdelivery.h>
 #include <stdlib.h>
 
 // wakuGoCallback (sync request/response) and wakuEventCallback (async events)
@@ -57,8 +61,9 @@ static void cGoWakuVersion(void* ctx, void* resp) {
 }
 static void cGoWakuSetEventCallback(void* ctx) {
 	// The ctx doubles as userData so the shared event callback can route the
-	// event to the right registered handler.
-	set_event_callback(ctx, (FFICallBack) wakuEventCallback, ctx);
+	// event to the right registered handler. Since logos-delivery#3949 both
+	// ABIs share the single logosdelivery_set_event_callback setter.
+	logosdelivery_set_event_callback(ctx, (FFICallBack) wakuEventCallback, ctx);
 }
 static void cGoWakuRelayPublish(void* ctx, const char* pubSubTopic, const char* jsonWakuMessage, int timeoutMs, void* resp) {
 	waku_relay_publish(ctx, (FFICallBack) wakuGoCallback, resp, pubSubTopic, jsonWakuMessage, timeoutMs);
