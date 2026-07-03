@@ -14,11 +14,11 @@ export LIBWAKU_HEADER_PATH ?= $(LOGOS_DELIVERY_DIR)/library
 export LIBWAKU_LIB_PATH ?= $(LOGOS_DELIVERY_DIR)/build
 
 export CGO_CFLAGS := -I$(LIBWAKU_HEADER_PATH)/
-export CGO_LDFLAGS := -L$(LIBWAKU_LIB_PATH)/ -lwaku -Wl,-rpath,$(LIBWAKU_LIB_PATH)/
+export CGO_LDFLAGS := -L$(LIBWAKU_LIB_PATH)/ -llogosdelivery -Wl,-rpath,$(LIBWAKU_LIB_PATH)/
 
 # Expected files
-HEADER_FILE := $(LIBWAKU_HEADER_PATH)/libwaku.h
-LIB_FILES   := $(wildcard $(LIBWAKU_LIB_PATH)/libwaku.*)
+HEADER_FILE := $(LIBWAKU_HEADER_PATH)/liblogosdelivery.h
+LIB_FILES   := $(wildcard $(LIBWAKU_LIB_PATH)/liblogosdelivery.*)
 
 .PHONY: all clean prepare build test build-auto test-auto build-libwaku
 
@@ -40,9 +40,9 @@ check-folders:
 		echo "ERROR: Library path does not exist: $(LIBWAKU_LIB_PATH)"; exit 1; \
 	fi
 
-	@echo Checking for libwaku.h ...
+	@echo Checking for liblogosdelivery.h ...
 	@if [ ! -f "$(HEADER_FILE)" ]; then \
-		echo "ERROR: libwaku.h not found at: $(HEADER_FILE)"; exit 1; \
+		echo "ERROR: liblogosdelivery.h not found at: $(HEADER_FILE)"; exit 1; \
 	fi
 
 	@echo Checking for libwaku library file ...

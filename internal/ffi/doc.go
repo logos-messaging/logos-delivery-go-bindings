@@ -1,7 +1,7 @@
-// Package ffi groups the cgo bridges over the logos-delivery C libraries.
+// Package ffi groups the cgo bridge over the logos-delivery C library.
 //
-// Each C library gets its own subpackage (libwaku now; liblogosdelivery in a
-// follow-up) so that a binary links exactly the libraries it imports — the
-// two .so files carry overlapping symbols and must never be linked together
-// (until logos-delivery#3851 consolidates them).
+// The single liblogosdelivery library exposes the full API — the unified node
+// lifecycle, the Messaging API, Reliable Channels, and the low-level Kernel
+// (waku_*) tier — so a single bridge subpackage, liblogosdelivery, serves both
+// pkg/messaging and pkg/kernel.
 package ffi
