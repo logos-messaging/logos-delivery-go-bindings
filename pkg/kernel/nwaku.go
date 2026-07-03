@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/logos-messaging/logos-delivery-go-bindings/internal/ffi/libwaku"
+	"github.com/logos-messaging/logos-delivery-go-bindings/internal/ffi/liblogosdelivery"
 	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/timesource"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -33,7 +33,7 @@ const ConnectionChangeChanBufferSize = 1024
 
 // WakuNode represents an instance of an nwaku node
 type WakuNode struct {
-	wakuCtx              libwaku.Handle
+	wakuCtx              liblogosdelivery.Handle
 	config               *common.WakuConfig
 	MsgChan              chan common.Envelope
 	TopicHealthChan      chan topicHealth
@@ -54,7 +54,7 @@ func NewWakuNode(config *common.WakuConfig, nodeName string) (*WakuNode, error) 
 		return nil, err
 	}
 
-	n.wakuCtx, err = libwaku.New(string(jsonConfig))
+	n.wakuCtx, err = liblogosdelivery.New(string(jsonConfig))
 	if err != nil {
 		Error("error wakuNew for %s: %v", nodeName, err)
 		return nil, err
@@ -64,15 +64,15 @@ func NewWakuNode(config *common.WakuConfig, nodeName string) (*WakuNode, error) 
 	n.TopicHealthChan = make(chan topicHealth, TopicHealthChanBufferSize)
 	n.ConnectionChangeChan = make(chan connectionChange, ConnectionChangeChanBufferSize)
 
-	libwaku.SetEventHandler(n.wakuCtx, n.onRawEvent)
+	liblogosdelivery.SetEventHandler(n.wakuCtx, n.onRawEvent)
 
 	Debug("Successfully created WakuNode: %s", nodeName)
 	return n, nil
 }
 
-// onRawEvent receives every libwaku event for this node from the ffi bridge.
+// onRawEvent receives every kernel event for this node from the ffi bridge.
 func (n *WakuNode) onRawEvent(ret int, msg string) {
-	if ret == libwaku.RetOK {
+	if ret == liblogosdelivery.RetOK {
 		n.OnEvent(msg)
 		return
 	}
@@ -168,7 +168,7 @@ func (n *WakuNode) GetNumConnectedRelayPeers(optPubsubTopic ...string) (int, err
 		pubsubTopic = optPubsubTopic[0]
 	}
 
-	numPeersStr, err := libwaku.GetNumConnectedRelayPeers(n.wakuCtx, pubsubTopic)
+	numPeersStr, err := liblogosdelivery.GetNumConnectedRelayPeers(n.wakuCtx, pubsubTopic)
 	if err != nil {
 		errMsg := "error GetNumConnectedRelayPeers: " + err.Error()
 		Error("Failed to get number of connected relay peers for %s: %s", n.nodeName, errMsg)
@@ -199,7 +199,7 @@ func (n *WakuNode) GetConnectedRelayPeers(optPubsubTopic ...string) (peer.IDSlic
 
 	Debug("Fetching connected relay peers for pubsubTopic: %v, node: %v", pubsubTopic, n.nodeName)
 
-	peersStr, err := libwaku.GetConnectedRelayPeers(n.wakuCtx, pubsubTopic)
+	peersStr, err := liblogosdelivery.GetConnectedRelayPeers(n.wakuCtx, pubsubTopic)
 	if err != nil {
 		errMsg := "error GetConnectedRelayPeers: " + err.Error()
 		Error("Failed to get connected relay peers for pubsubTopic: %v:, node: %v. %v", pubsubTopic, n.nodeName, errMsg)
@@ -227,14 +227,14 @@ func (n *WakuNode) GetConnectedRelayPeers(optPubsubTopic ...string) (peer.IDSlic
 }
 
 func (n *WakuNode) DisconnectPeerByID(peerID peer.ID) error {
-	if err := libwaku.DisconnectPeerByID(n.wakuCtx, peerID.String()); err != nil {
+	if err := liblogosdelivery.DisconnectPeerByID(n.wakuCtx, peerID.String()); err != nil {
 		return fmt.Errorf("error DisconnectPeerById: %w", err)
 	}
 	return nil
 }
 
 func (n *WakuNode) DisconnectAllPeers() error {
-	if err := libwaku.DisconnectAllPeers(n.wakuCtx); err != nil {
+	if err := liblogosdelivery.DisconnectAllPeers(n.wakuCtx); err != nil {
 		return fmt.Errorf("error DisconnectAllPeers: %w", err)
 	}
 	return nil
@@ -249,7 +249,7 @@ func (n *WakuNode) GetConnectedPeers() (peer.IDSlice, error) {
 
 	Debug("Fetching connected peers for %v", n.nodeName)
 
-	peersStr, err := libwaku.GetConnectedPeers(n.wakuCtx)
+	peersStr, err := liblogosdelivery.GetConnectedPeers(n.wakuCtx)
 	if err != nil {
 		errMsg := "error GetConnectedPeers: " + err.Error()
 		Error("Failed to get connected peers for %v: %v", n.nodeName, errMsg)
@@ -285,7 +285,7 @@ func (n *WakuNode) GetPeersInMesh(pubsubTopic string) (peer.IDSlice, error) {
 
 	Debug("Fetching peers in mesh peers for pubsubTopic: %v, node: %v", pubsubTopic, n.nodeName)
 
-	peersStr, err := libwaku.GetPeersInMesh(n.wakuCtx, pubsubTopic)
+	peersStr, err := liblogosdelivery.GetPeersInMesh(n.wakuCtx, pubsubTopic)
 	if err != nil {
 		errMsg := "error GetPeersInMesh: " + err.Error()
 		Error("Failed to get peers in mesh for pubsubTopic: %v:, node: %v. %v", pubsubTopic, n.nodeName, errMsg)
@@ -321,7 +321,7 @@ func (n *WakuNode) RelaySubscribe(pubsubTopic string) error {
 		return errors.New("wakuCtx is nil")
 	}
 
-	if err := libwaku.RelaySubscribe(n.wakuCtx, pubsubTopic); err != nil {
+	if err := liblogosdelivery.RelaySubscribe(n.wakuCtx, pubsubTopic); err != nil {
 		Error("Failed to subscribe to relay on node %s, pubsubTopic: %s, error: %v", n.nodeName, pubsubTopic, err)
 		return fmt.Errorf("error WakuRelaySubscribe: %w", err)
 	}
@@ -341,7 +341,7 @@ func (n *WakuNode) RelayAddProtectedShard(clusterId uint16, shardId uint16, pubk
 
 	keyHexStr := hex.EncodeToString(crypto.FromECDSAPub(pubkey))
 
-	if err := libwaku.RelayAddProtectedShard(n.wakuCtx, int(clusterId), int(shardId), keyHexStr); err != nil {
+	if err := liblogosdelivery.RelayAddProtectedShard(n.wakuCtx, int(clusterId), int(shardId), keyHexStr); err != nil {
 		return fmt.Errorf("error WakuRelayAddProtectedShard: %w", err)
 	}
 	return nil
@@ -359,7 +359,7 @@ func (n *WakuNode) RelayUnsubscribe(pubsubTopic string) error {
 	}
 
 	Debug("Attempting to unsubscribe from relay on node %s, pubsubTopic: %s", n.nodeName, pubsubTopic)
-	if err := libwaku.RelayUnsubscribe(n.wakuCtx, pubsubTopic); err != nil {
+	if err := liblogosdelivery.RelayUnsubscribe(n.wakuCtx, pubsubTopic); err != nil {
 		Error("Failed to unsubscribe from relay on node %s, pubsubTopic: %s, error: %v", n.nodeName, pubsubTopic, err)
 		return fmt.Errorf("error WakuRelayUnsubscribe: %w", err)
 	}
@@ -369,7 +369,7 @@ func (n *WakuNode) RelayUnsubscribe(pubsubTopic string) error {
 }
 
 func (n *WakuNode) PeerExchangeRequest(numPeers uint64) (uint64, error) {
-	numRecvPeersStr, err := libwaku.PeerExchangeRequest(n.wakuCtx, numPeers)
+	numRecvPeersStr, err := liblogosdelivery.PeerExchangeRequest(n.wakuCtx, numPeers)
 	if err != nil {
 		Error("PeerExchangeRequest failed: %v", err)
 		return 0, err
@@ -386,7 +386,7 @@ func (n *WakuNode) PeerExchangeRequest(numPeers uint64) (uint64, error) {
 func (n *WakuNode) StartDiscV5() error {
 
 	Debug("Starting DiscV5 for node: %s", n.nodeName)
-	if err := libwaku.StartDiscV5(n.wakuCtx); err != nil {
+	if err := liblogosdelivery.StartDiscV5(n.wakuCtx); err != nil {
 		errMsg := "error WakuStartDiscV5: " + err.Error()
 		Error("Failed to start DiscV5 for node %s: %v", n.nodeName, errMsg)
 		return errors.New(errMsg)
@@ -396,7 +396,7 @@ func (n *WakuNode) StartDiscV5() error {
 }
 
 func (n *WakuNode) StopDiscV5() error {
-	if err := libwaku.StopDiscV5(n.wakuCtx); err != nil {
+	if err := liblogosdelivery.StopDiscV5(n.wakuCtx); err != nil {
 		errMsg := "error WakuStopDiscV5: " + err.Error()
 		Error("Failed to stop DiscV5 for node %s: %v", n.nodeName, errMsg)
 		return errors.New(errMsg)
@@ -406,7 +406,7 @@ func (n *WakuNode) StopDiscV5() error {
 }
 
 func (n *WakuNode) Version() (string, error) {
-	version, err := libwaku.Version(n.wakuCtx)
+	version, err := liblogosdelivery.Version(n.wakuCtx)
 	if err != nil {
 		errMsg := "error WakuVersion: " + err.Error()
 		Error("Failed to fetch Waku version for node %s: %v", n.nodeName, errMsg)
@@ -430,7 +430,7 @@ func (n *WakuNode) StoreQuery(ctx context.Context, storeRequest *common.StoreQue
 		addrs[i] = addr.String()
 	}
 
-	jsonResponseStr, err := libwaku.StoreQuery(n.wakuCtx, string(b), strings.Join(addrs, ","), timeoutMs)
+	jsonResponseStr, err := liblogosdelivery.StoreQuery(n.wakuCtx, string(b), strings.Join(addrs, ","), timeoutMs)
 	if err != nil {
 		return nil, fmt.Errorf("error WakuStoreQuery: %w", err)
 	}
@@ -451,7 +451,7 @@ func (n *WakuNode) RelayPublish(ctx context.Context, message *pb.WakuMessage, pu
 		return common.MessageHash(""), err
 	}
 
-	msgHash, err := libwaku.RelayPublish(n.wakuCtx, pubsubTopic, string(jsonMsg), timeoutMs)
+	msgHash, err := liblogosdelivery.RelayPublish(n.wakuCtx, pubsubTopic, string(jsonMsg), timeoutMs)
 	if err != nil {
 		return common.MessageHash(""), fmt.Errorf("WakuRelayPublish: %w", err)
 	}
@@ -489,7 +489,7 @@ func (n *WakuNode) RelayPublishNoCTX(pubsubTopic string, message *pb.WakuMessage
 func (n *WakuNode) DnsDiscovery(ctx context.Context, enrTreeUrl string, nameDnsServer string) ([]multiaddr.Multiaddr, error) {
 	timeoutMs := getContextTimeoutMilliseconds(ctx)
 
-	nodeAddresses, err := libwaku.DnsDiscovery(n.wakuCtx, enrTreeUrl, nameDnsServer, timeoutMs)
+	nodeAddresses, err := liblogosdelivery.DnsDiscovery(n.wakuCtx, enrTreeUrl, nameDnsServer, timeoutMs)
 	if err != nil {
 		return nil, fmt.Errorf("error WakuDnsDiscovery: %w", err)
 	}
@@ -514,7 +514,7 @@ func (n *WakuNode) PingPeer(ctx context.Context, peerInfo peer.AddrInfo) (time.D
 
 	timeoutMs := getContextTimeoutMilliseconds(ctx)
 
-	rttStr, err := libwaku.PingPeer(n.wakuCtx, strings.Join(addrs, ","), timeoutMs)
+	rttStr, err := liblogosdelivery.PingPeer(n.wakuCtx, strings.Join(addrs, ","), timeoutMs)
 	if err != nil {
 		return 0, fmt.Errorf("PingPeer: %w", err)
 	}
@@ -529,7 +529,7 @@ func (n *WakuNode) PingPeer(ctx context.Context, peerInfo peer.AddrInfo) (time.D
 func (n *WakuNode) Start() error {
 	Debug("Starting %s", n.nodeName)
 
-	if err := libwaku.Start(n.wakuCtx); err != nil {
+	if err := liblogosdelivery.Start(n.wakuCtx); err != nil {
 		errMsg := "error WakuStart: " + err.Error()
 		Error("Failed to start %s: %s", n.nodeName, errMsg)
 		return errors.New(errMsg)
@@ -542,7 +542,7 @@ func (n *WakuNode) Start() error {
 func (n *WakuNode) Stop() error {
 
 	Debug("Stopping %s", n.nodeName)
-	if err := libwaku.Stop(n.wakuCtx); err != nil {
+	if err := liblogosdelivery.Stop(n.wakuCtx); err != nil {
 		errMsg := "error WakuStop: " + err.Error()
 		Error("Failed to stop %s: %s", n.nodeName, errMsg)
 		return errors.New(errMsg)
@@ -561,7 +561,7 @@ func (n *WakuNode) Destroy() error {
 
 	Debug("Destroying %v", n.nodeName)
 
-	if err := libwaku.Destroy(n.wakuCtx); err != nil {
+	if err := liblogosdelivery.Destroy(n.wakuCtx); err != nil {
 		errMsg := "error WakuDestroy: " + err.Error()
 		Error("Failed to destroy %v: %v", n.nodeName, errMsg)
 		return errors.New(errMsg)
@@ -572,7 +572,7 @@ func (n *WakuNode) Destroy() error {
 }
 
 func (n *WakuNode) PeerID() (peer.ID, error) {
-	peerIdStr, err := libwaku.GetMyPeerID(n.wakuCtx)
+	peerIdStr, err := liblogosdelivery.GetMyPeerID(n.wakuCtx)
 	if err != nil {
 		return "", err
 	}
@@ -588,7 +588,7 @@ func (n *WakuNode) PeerID() (peer.ID, error) {
 func (n *WakuNode) Connect(ctx context.Context, addr multiaddr.Multiaddr) error {
 	timeoutMs := getContextTimeoutMilliseconds(ctx)
 
-	if err := libwaku.Connect(n.wakuCtx, addr.String(), timeoutMs); err != nil {
+	if err := liblogosdelivery.Connect(n.wakuCtx, addr.String(), timeoutMs); err != nil {
 		return fmt.Errorf("error WakuConnect: %w", err)
 	}
 	return nil
@@ -597,14 +597,14 @@ func (n *WakuNode) Connect(ctx context.Context, addr multiaddr.Multiaddr) error 
 func (n *WakuNode) DialPeerByID(ctx context.Context, peerID peer.ID, protocol libp2pproto.ID) error {
 	timeoutMs := getContextTimeoutMilliseconds(ctx)
 
-	if err := libwaku.DialPeerByID(n.wakuCtx, peerID.String(), string(protocol), timeoutMs); err != nil {
+	if err := liblogosdelivery.DialPeerByID(n.wakuCtx, peerID.String(), string(protocol), timeoutMs); err != nil {
 		return fmt.Errorf("error DialPeerById: %w", err)
 	}
 	return nil
 }
 
 func (n *WakuNode) ListenAddresses() ([]multiaddr.Multiaddr, error) {
-	listenAddresses, err := libwaku.ListenAddresses(n.wakuCtx)
+	listenAddresses, err := liblogosdelivery.ListenAddresses(n.wakuCtx)
 	if err != nil {
 		return nil, fmt.Errorf("error WakuListenAddresses: %w", err)
 	}
@@ -622,7 +622,7 @@ func (n *WakuNode) ListenAddresses() ([]multiaddr.Multiaddr, error) {
 }
 
 func (n *WakuNode) ENR() (*enode.Node, error) {
-	enrStr, err := libwaku.GetMyENR(n.wakuCtx)
+	enrStr, err := liblogosdelivery.GetMyENR(n.wakuCtx)
 	if err != nil {
 		return nil, fmt.Errorf("error WakuGetMyENR: %w", err)
 	}
@@ -635,7 +635,7 @@ func (n *WakuNode) ENR() (*enode.Node, error) {
 }
 
 func (n *WakuNode) GetNumPeersInMesh(pubsubTopic string) (int, error) {
-	numPeersStr, err := libwaku.GetNumPeersInMesh(n.wakuCtx, pubsubTopic)
+	numPeersStr, err := liblogosdelivery.GetNumPeersInMesh(n.wakuCtx, pubsubTopic)
 	if err != nil {
 		return 0, fmt.Errorf("error GetNumPeersInMesh: %w", err)
 	}
@@ -649,7 +649,7 @@ func (n *WakuNode) GetNumPeersInMesh(pubsubTopic string) (int, error) {
 }
 
 func (n *WakuNode) GetPeerIDsFromPeerStore() (peer.IDSlice, error) {
-	peersStr, err := libwaku.GetPeerIDsFromPeerStore(n.wakuCtx)
+	peersStr, err := liblogosdelivery.GetPeerIDsFromPeerStore(n.wakuCtx)
 	if err != nil {
 		return nil, fmt.Errorf("GetPeerIdsFromPeerStore: %s", err.Error())
 	}
@@ -672,7 +672,7 @@ func (n *WakuNode) GetPeerIDsFromPeerStore() (peer.IDSlice, error) {
 }
 
 func (n *WakuNode) GetConnectedPeersInfo() (common.PeersData, error) {
-	jsonStr, err := libwaku.GetConnectedPeersInfo(n.wakuCtx)
+	jsonStr, err := liblogosdelivery.GetConnectedPeersInfo(n.wakuCtx)
 	if err != nil {
 		return nil, fmt.Errorf("GetConnectedPeersInfo: %s", err.Error())
 	}
@@ -691,7 +691,7 @@ func (n *WakuNode) GetConnectedPeersInfo() (common.PeersData, error) {
 }
 
 func (n *WakuNode) GetPeerIDsByProtocol(protocol libp2pproto.ID) (peer.IDSlice, error) {
-	peersStr, err := libwaku.GetPeerIDsByProtocol(n.wakuCtx, string(protocol))
+	peersStr, err := liblogosdelivery.GetPeerIDsByProtocol(n.wakuCtx, string(protocol))
 	if err != nil {
 		return nil, fmt.Errorf("GetPeerIdsByProtocol: error GetPeerIdsByProtocol: %s", err.Error())
 	}
@@ -716,7 +716,7 @@ func (n *WakuNode) GetPeerIDsByProtocol(protocol libp2pproto.ID) (peer.IDSlice, 
 func (n *WakuNode) DialPeer(ctx context.Context, peerAddr multiaddr.Multiaddr, protocol libp2pproto.ID) error {
 	timeoutMs := getContextTimeoutMilliseconds(ctx)
 
-	if err := libwaku.DialPeer(n.wakuCtx, peerAddr.String(), string(protocol), timeoutMs); err != nil {
+	if err := liblogosdelivery.DialPeer(n.wakuCtx, peerAddr.String(), string(protocol), timeoutMs); err != nil {
 		return fmt.Errorf("error DialPeer: %w", err)
 	}
 	return nil
@@ -934,7 +934,7 @@ func (n *WakuNode) IsOnline() (bool, error) {
 
 	Debug("Querying online state for %v", n.nodeName)
 
-	onlineStr, err := libwaku.IsOnline(n.wakuCtx)
+	onlineStr, err := liblogosdelivery.IsOnline(n.wakuCtx)
 	if err != nil {
 		errMsg := "error IsOnline: " + err.Error()
 		Error("Failed to query online state for %v: %v", n.nodeName, errMsg)
@@ -953,7 +953,7 @@ func (n *WakuNode) GetMetrics() (string, error) {
 
 	Debug("Querying metrics for %v", n.nodeName)
 
-	metricsStr, err := libwaku.GetMetrics(n.wakuCtx)
+	metricsStr, err := liblogosdelivery.GetMetrics(n.wakuCtx)
 	if err != nil {
 		errMsg := "error GetMetrics: " + err.Error()
 		Error("Failed to query metrics for %v: %v", n.nodeName, errMsg)
