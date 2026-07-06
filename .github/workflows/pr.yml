@@ -17,11 +17,6 @@ jobs:
       # Clone the logos-delivery checkout OUTSIDE the module tree: a directory
       # named `vendor/` at the module root would put Go into vendor mode.
       LOGOS_DELIVERY_DIR: ${{ github.workspace }}/.logos-delivery
-      # TODO(revert once merged): pinned to logos-delivery#4012, which unifies
-      # the node lifecycle on logosdelivery_* and ships the full API in the
-      # single liblogosdelivery library. Point back at the default branch after
-      # it merges.
-      LOGOS_DELIVERY_REF: update-examples-ffi-node-lifecycle
       # The single liblogosdelivery library exposes the full API; its headers
       # live in library/. The bridge self-links -llogosdelivery via a #cgo
       # directive, so no -l is set here.
@@ -43,10 +38,10 @@ jobs:
 
       - name: Resolve logos-delivery commit
         # Cache the built library keyed on the exact upstream commit, so the
-        # expensive clone + build is skipped while the pinned ref is unchanged.
+        # expensive clone + build is skipped while master's HEAD is unchanged.
         id: logos-delivery-rev
         run: |
-          rev=$(git ls-remote https://github.com/logos-messaging/logos-delivery.git "$LOGOS_DELIVERY_REF" | cut -f1)
+          rev=$(git ls-remote https://github.com/logos-messaging/logos-delivery.git HEAD | cut -f1)
           echo "rev=$rev" >> "$GITHUB_OUTPUT"
 
       - name: Cache logos-delivery build
@@ -58,7 +53,7 @@ jobs:
 
       - name: Clone logos-delivery
         if: steps.logos-delivery-cache.outputs.cache-hit != 'true'
-        run: git clone --depth 1 --branch "$LOGOS_DELIVERY_REF" https://github.com/logos-messaging/logos-delivery.git "$LOGOS_DELIVERY_DIR"
+        run: git clone --depth 1 https://github.com/logos-messaging/logos-delivery.git "$LOGOS_DELIVERY_DIR"
 
       - name: Build liblogosdelivery
         if: steps.logos-delivery-cache.outputs.cache-hit != 'true'
