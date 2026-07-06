@@ -446,7 +446,23 @@ func (n *WakuNode) StoreQuery(ctx context.Context, storeRequest *common.StoreQue
 func (n *WakuNode) RelayPublish(ctx context.Context, message *pb.WakuMessage, pubsubTopic string) (common.MessageHash, error) {
 	timeoutMs := getContextTimeoutMilliseconds(ctx)
 
-	jsonMsg, err := json.Marshal(message)
+	// The library expects the WakuMessage wire format (camelCase keys); the
+	// generated protobuf struct marshals content_topic, so marshal explicitly.
+	jsonMsg, err := json.Marshal(struct {
+		Payload      []byte  `json:"payload,omitempty"`
+		ContentTopic string  `json:"contentTopic"`
+		Version      *uint32 `json:"version,omitempty"`
+		Timestamp    *int64  `json:"timestamp,omitempty"`
+		Meta         []byte  `json:"meta,omitempty"`
+		Ephemeral    *bool   `json:"ephemeral,omitempty"`
+	}{
+		Payload:      message.Payload,
+		ContentTopic: message.ContentTopic,
+		Version:      message.Version,
+		Timestamp:    message.Timestamp,
+		Meta:         message.Meta,
+		Ephemeral:    message.Ephemeral,
+	})
 	if err != nil {
 		return common.MessageHash(""), err
 	}
