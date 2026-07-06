@@ -672,7 +672,6 @@ func TestStore(t *testing.T) {
 		Shards:          []uint16{64},
 		Discv5UdpPort:   udpPort,
 		TcpPort:         tcpPort,
-		LegacyStore:     false,
 	}
 
 	senderNode, err := NewWakuNode(&senderNodeWakuConfig, "senderNode")
@@ -692,7 +691,6 @@ func TestStore(t *testing.T) {
 		Shards:          []uint16{64},
 		Discv5UdpPort:   udpPort,
 		TcpPort:         tcpPort,
-		LegacyStore:     false,
 	}
 	receiverNode, err := NewWakuNode(&receiverNodeWakuConfig, "receiverNode")
 	require.NoError(t, err)
