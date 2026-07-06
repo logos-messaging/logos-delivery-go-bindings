@@ -837,7 +837,6 @@ func TestCheckLegacyStore(t *testing.T) {
 	node2Config := DefaultWakuConfig
 	node2Config.Relay = true
 	node2Config.Store = true
-	node2Config.LegacyStore = true
 
 	Debug("Creating Node2")
 	node2, err := StartWakuNode("Node2", &node2Config)
