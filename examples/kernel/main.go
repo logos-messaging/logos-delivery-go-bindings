@@ -1,7 +1,9 @@
 // Command kernel is a small runnable check that the bindings work against the
-// single liblogosdelivery library: it drives the unified node lifecycle
-// (logosdelivery_create_node/start/stop/destroy) and a few low-level Kernel
-// (waku_*) operations through pkg/kernel.
+// single liblogosdelivery library. It brings up two relay nodes, connects them,
+// publishes a message from one, and confirms the other receives it — end-to-end
+// send/receive over the unified lifecycle (logosdelivery_create_node/start/
+// stop/destroy) and the Kernel relay ops (waku_relay_publish, plus the mesh the
+// node forms for its configured shard).
 //
 // Build/run requires liblogosdelivery at link time, e.g.:
 //
@@ -12,69 +14,114 @@
 package main
 
 import (
+	"context"
 	"log"
+	"time"
 
 	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel"
 	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/common"
+	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/pb"
+	"google.golang.org/protobuf/proto"
 )
 
+const (
+	clusterID = 16
+	shardID   = 64
+)
+
+func newNode(name string) *kernel.WakuNode {
+	// A relay node on cluster 16, static shard 0 — the node auto-subscribes to
+	// its configured shard, so no explicit RelaySubscribe or discovery is needed.
+	node, err := kernel.StartWakuNode(name, &common.WakuConfig{
+		Relay:           true,
+		LogLevel:        "ERROR",
+		Discv5Discovery: false,
+		ClusterID:       clusterID,
+		Shards:          []uint16{shardID},
+	})
+	if err != nil {
+		log.Fatalf("start %s: %v", name, err)
+	}
+	return node
+}
+
+func stopAndDestroy(node *kernel.WakuNode) {
+	if err := node.StopAndDestroy(); err != nil {
+		log.Printf("stop/destroy: %v", err)
+	}
+}
+
 func main() {
-	const clusterID = 16
+	sender := newNode("sender")
+	defer stopAndDestroy(sender)
+	receiver := newNode("receiver")
+	defer stopAndDestroy(receiver)
 
-	// A single, isolated relay node — no bootstrap/discovery needed.
-	cfg := &common.WakuConfig{
-		Relay:              true,
-		ClusterID:          clusterID,
-		Shards:             []uint16{0},
-		NumShardsInNetwork: 8,
-		LogLevel:           "ERROR",
+	topic := kernel.FormatWakuRelayTopic(clusterID, shardID)
+	if err := sender.RelaySubscribe(topic); err != nil {
+		log.Fatalf("sender subscribe: %v", err)
+	}
+	if err := receiver.RelaySubscribe(topic); err != nil {
+		log.Fatalf("receiver subscribe: %v", err)
 	}
 
-	// StartWakuNode creates (logosdelivery_create_node) + starts
-	// (logosdelivery_start_node) the node, allocating a free TCP port.
-	node, err := kernel.StartWakuNode("kernel-example", cfg)
-	if err != nil {
-		log.Fatalf("start node: %v", err)
+	// Dial the receiver from the sender using the receiver's listen multiaddr
+	// (it already embeds the peer id).
+	addrs, err := receiver.ListenAddresses()
+	if err != nil || len(addrs) == 0 {
+		log.Fatalf("receiver listen addresses: %v", err)
 	}
-	defer func() {
-		// logosdelivery_stop_node + logosdelivery_destroy
-		if err := node.StopAndDestroy(); err != nil {
-			log.Printf("stop/destroy: %v", err)
+	connCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := sender.Connect(connCtx, addrs[0]); err != nil {
+		log.Fatalf("connect sender -> receiver: %v", err)
+	}
+	// The dial is asynchronous; wait for the peer to actually connect.
+	for i := 0; ; i++ {
+		if n, _ := sender.GetNumConnectedPeers(); n >= 1 {
+			log.Printf("nodes connected (%d peer)", n)
+			break
 		}
-	}()
-
-	// A few low-level kernel calls to prove the kernel surface links and runs
-	// over the single library.
-	version, err := node.Version() // waku_version
-	if err != nil {
-		log.Fatalf("version: %v", err)
+		if i >= 15 {
+			log.Fatal("no peer connected after 15s")
+		}
+		time.Sleep(1 * time.Second)
 	}
-	log.Printf("node version: %s", version)
 
-	addrs, err := node.ListenAddresses() // waku_listen_addresses
-	if err != nil {
-		log.Fatalf("listen addresses: %v", err)
+	payload := []byte("hello over relay")
+	publish := func() {
+		msg := &pb.WakuMessage{
+			Payload:      payload,
+			ContentTopic: "/kernel-example/1/relay/proto",
+			Version:      proto.Uint32(0),
+			Timestamp:    proto.Int64(time.Now().UnixNano()),
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if hash, err := sender.RelayPublish(ctx, msg, topic); err != nil {
+			log.Printf("publish (retrying): %v", err)
+		} else {
+			log.Printf("sender published, hash: %s", hash.String())
+		}
 	}
-	log.Printf("listening on: %v", addrs)
 
-	online, err := node.IsOnline() // waku_is_online
-	if err != nil {
-		log.Fatalf("is online: %v", err)
+	// Publish immediately, then retry each second — gossipsub needs a moment to
+	// graft the mesh after the connection is established.
+	publish()
+	deadline := time.After(30 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case env := <-receiver.MsgChan:
+			if got := env.Message().GetPayload(); string(got) == string(payload) {
+				log.Printf("receiver got %q on %s — send/receive OK over the single library", got, env.PubsubTopic())
+				return
+			}
+		case <-ticker.C:
+			publish()
+		case <-deadline:
+			log.Fatal("timed out waiting for the receiver to get the message")
+		}
 	}
-	log.Printf("online: %v", online)
-
-	// Subscribe to / unsubscribe from a relay (pubsub) topic
-	// (waku_relay_subscribe / waku_relay_unsubscribe).
-	topic := kernel.FormatWakuRelayTopic(clusterID, 0)
-	if err := node.RelaySubscribe(topic); err != nil {
-		log.Fatalf("relay subscribe: %v", err)
-	}
-	log.Printf("subscribed to %s", topic)
-
-	if err := node.RelayUnsubscribe(topic); err != nil {
-		log.Fatalf("relay unsubscribe: %v", err)
-	}
-	log.Printf("unsubscribed from %s", topic)
-
-	log.Print("OK — single liblogosdelivery library: node lifecycle + kernel ops work")
 }
