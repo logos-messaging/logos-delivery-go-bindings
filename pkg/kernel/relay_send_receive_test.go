@@ -74,7 +74,7 @@ func TestRelaySendReceive(t *testing.T) {
 	publish()
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
-	deadline := time.After(30 * time.Second)
+	deadline := time.After(10 * time.Second)
 	for {
 		select {
 		case env := <-receiver.MsgChan:

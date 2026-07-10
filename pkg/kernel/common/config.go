@@ -2,7 +2,7 @@ package common
 
 type WakuConfig struct {
 	// Host is the LibP2P listening address; the consolidated WakuNodeConf calls
-	// it listenAddress (the legacy `host` key was removed).
+	// it listenAddress. This expects an IPv4.
 	Host                        string           `json:"listenAddress,omitempty"`
 	Nodekey                     string           `json:"nodekey,omitempty"`
 	Relay                       bool             `json:"relay"`
