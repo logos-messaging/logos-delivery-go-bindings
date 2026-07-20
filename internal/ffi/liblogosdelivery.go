@@ -1,13 +1,12 @@
-// Package liblogosdelivery is the cgo bridge over liblogosdelivery (the
-// logos-delivery Messaging API C library). It owns the synchronous
-// request/response callback plumbing, the shared async event callback, and the
-// handle->handler registry, and exposes Go-typed primitives so the public
-// messaging package stays pure Go.
-//
-// It links liblogosdelivery via a #cgo directive; it must never be linked into
-// the same binary as the libwaku bridge (overlapping symbols) until
-// logos-delivery#3851 consolidates the two libraries.
-package liblogosdelivery
+// Package ffi is the cgo bridge over the single liblogosdelivery C library,
+// which exposes the full logos-delivery API. It is split across two files
+// mirroring the two headers: this file (liblogosdelivery.go) owns the shared
+// plumbing — the synchronous request/response callback, the async event
+// callback, the handle->handler registry and the node lifecycle — plus the
+// stable Messaging API (liblogosdelivery.h); libwaku.go adds the low-level
+// Kernel API (waku_*, liblogosdelivery_kernel.h). It exposes Go-typed
+// primitives so pkg/kernel and pkg/messaging stay pure Go.
+package ffi
 
 /*
 #cgo LDFLAGS: -llogosdelivery

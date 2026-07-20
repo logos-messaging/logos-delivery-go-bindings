@@ -1,11 +1,12 @@
 package common
 
 type WakuConfig struct {
-	Host                        string           `json:"host,omitempty"`
+	// Host is the LibP2P listening address; the consolidated WakuNodeConf calls
+	// it listenAddress. This expects an IPv4.
+	Host                        string           `json:"listenAddress,omitempty"`
 	Nodekey                     string           `json:"nodekey,omitempty"`
 	Relay                       bool             `json:"relay"`
 	Store                       bool             `json:"store,omitempty"`
-	LegacyStore                 bool             `json:"legacyStore"`
 	Storenode                   string           `json:"storenode,omitempty"`
 	StoreMessageRetentionPolicy string           `json:"storeMessageRetentionPolicy,omitempty"`
 	StoreMessageDbUrl           string           `json:"storeMessageDbUrl,omitempty"`

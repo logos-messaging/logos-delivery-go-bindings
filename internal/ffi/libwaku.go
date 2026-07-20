@@ -1,266 +1,107 @@
-// Package libwaku is the cgo bridge over libwaku (the legacy Kernel API
-// library): the synchronous request/callback plumbing, the global event
-// callback, and the handle registry. It exposes Go-typed primitives so
-// pkg/kernel stays pure Go.
-package libwaku
+// This file holds the low-level Kernel (waku_*) tier of the single
+// liblogosdelivery library (declared in liblogosdelivery_kernel.h). The shared
+// plumbing — Handle, RetOK, EventHandler, the node lifecycle, the response/event
+// callbacks and the call helper — lives in liblogosdelivery.go (same package).
+package ffi
 
 /*
-#cgo LDFLAGS: -lwaku
-#include <libwaku.h>
+#include <liblogosdelivery_kernel.h>
 #include <stdlib.h>
 
-// wakuGoCallback (sync request/response) and wakuEventCallback (async events)
-// are implemented in Go and exported below.
-extern void wakuGoCallback(int ret, char* msg, size_t len, void* resp);
-extern void wakuEventCallback(int ret, char* msg, size_t len, void* userData);
-
-// wakuResp carries a single synchronous call's result back from the callback,
-// plus a pointer to the Go sync.WaitGroup the caller blocks on.
-typedef struct {
-	int    ret;
-	char*  msg;
-	size_t len;
-	void*  wg;
-} wakuResp;
-
-static void* allocWakuResp(void* wg) {
-	wakuResp* r = (wakuResp*) calloc(1, sizeof(wakuResp));
-	r->wg = wg;
-	return r;
-}
-static void   freeWakuResp(void* resp) { if (resp != NULL) free(resp); }
-static char*  wakuRespMsg(void* resp)  { return resp ? ((wakuResp*)resp)->msg : NULL; }
-static size_t wakuRespLen(void* resp)  { return resp ? ((wakuResp*)resp)->len : 0; }
-static int    wakuRespRet(void* resp)  { return resp ? ((wakuResp*)resp)->ret : RET_ERR; }
-
-// Thin wrappers binding the shared Go callback to each libwaku entry point.
-static void* cGoWakuNew(const char* configJson, void* resp) {
-	return waku_new(configJson, (FFICallBack) wakuGoCallback, resp);
-}
-static void cGoWakuStart(void* ctx, void* resp) {
-	waku_start(ctx, (FFICallBack) wakuGoCallback, resp);
-}
-static void cGoWakuStop(void* ctx, void* resp) {
-	waku_stop(ctx, (FFICallBack) wakuGoCallback, resp);
-}
-static void cGoWakuDestroy(void* ctx, void* resp) {
-	waku_destroy(ctx, (FFICallBack) wakuGoCallback, resp);
-}
+// logosGoCallback (the synchronous response callback) is defined in
+// liblogosdelivery.go; the kernel wrappers below reuse it.
+extern void logosGoCallback(int ret, char* msg, size_t len, void* resp);
 static void cGoWakuStartDiscV5(void* ctx, void* resp) {
-	waku_start_discv5(ctx, (FFICallBack) wakuGoCallback, resp);
+	waku_start_discv5(ctx, (FFICallBack) logosGoCallback, resp);
 }
 static void cGoWakuStopDiscV5(void* ctx, void* resp) {
-	waku_stop_discv5(ctx, (FFICallBack) wakuGoCallback, resp);
+	waku_stop_discv5(ctx, (FFICallBack) logosGoCallback, resp);
 }
 static void cGoWakuVersion(void* ctx, void* resp) {
-	waku_version(ctx, (FFICallBack) wakuGoCallback, resp);
-}
-static void cGoWakuSetEventCallback(void* ctx) {
-	// The ctx doubles as userData so the shared event callback can route the
-	// event to the right registered handler.
-	set_event_callback(ctx, (FFICallBack) wakuEventCallback, ctx);
+	waku_version(ctx, (FFICallBack) logosGoCallback, resp);
 }
 static void cGoWakuRelayPublish(void* ctx, const char* pubSubTopic, const char* jsonWakuMessage, int timeoutMs, void* resp) {
-	waku_relay_publish(ctx, (FFICallBack) wakuGoCallback, resp, pubSubTopic, jsonWakuMessage, timeoutMs);
+	waku_relay_publish(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic, jsonWakuMessage, timeoutMs);
 }
 static void cGoWakuRelaySubscribe(void* ctx, const char* pubSubTopic, void* resp) {
-	waku_relay_subscribe(ctx, (FFICallBack) wakuGoCallback, resp, pubSubTopic);
+	waku_relay_subscribe(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic);
 }
 static void cGoWakuRelayAddProtectedShard(void* ctx, int clusterId, int shardId, char* publicKey, void* resp) {
-	waku_relay_add_protected_shard(ctx, (FFICallBack) wakuGoCallback, resp, clusterId, shardId, publicKey);
+	waku_relay_add_protected_shard(ctx, (FFICallBack) logosGoCallback, resp, clusterId, shardId, publicKey);
 }
 static void cGoWakuRelayUnsubscribe(void* ctx, const char* pubSubTopic, void* resp) {
-	waku_relay_unsubscribe(ctx, (FFICallBack) wakuGoCallback, resp, pubSubTopic);
+	waku_relay_unsubscribe(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic);
 }
 static void cGoWakuConnect(void* ctx, const char* peerMultiAddr, int timeoutMs, void* resp) {
-	waku_connect(ctx, (FFICallBack) wakuGoCallback, resp, peerMultiAddr, timeoutMs);
+	waku_connect(ctx, (FFICallBack) logosGoCallback, resp, peerMultiAddr, timeoutMs);
 }
 static void cGoWakuDialPeer(void* ctx, const char* peerMultiAddr, const char* protocol, int timeoutMs, void* resp) {
-	waku_dial_peer(ctx, (FFICallBack) wakuGoCallback, resp, peerMultiAddr, protocol, timeoutMs);
+	waku_dial_peer(ctx, (FFICallBack) logosGoCallback, resp, peerMultiAddr, protocol, timeoutMs);
 }
 static void cGoWakuDialPeerById(void* ctx, const char* peerId, const char* protocol, int timeoutMs, void* resp) {
-	waku_dial_peer_by_id(ctx, (FFICallBack) wakuGoCallback, resp, peerId, protocol, timeoutMs);
+	waku_dial_peer_by_id(ctx, (FFICallBack) logosGoCallback, resp, peerId, protocol, timeoutMs);
 }
 static void cGoWakuDisconnectPeerById(void* ctx, const char* peerId, void* resp) {
-	waku_disconnect_peer_by_id(ctx, (FFICallBack) wakuGoCallback, resp, peerId);
+	waku_disconnect_peer_by_id(ctx, (FFICallBack) logosGoCallback, resp, peerId);
 }
 static void cGoWakuDisconnectAllPeers(void* ctx, void* resp) {
-	waku_disconnect_all_peers(ctx, (FFICallBack) wakuGoCallback, resp);
+	waku_disconnect_all_peers(ctx, (FFICallBack) logosGoCallback, resp);
 }
 static void cGoWakuListenAddresses(void* ctx, void* resp) {
-	waku_listen_addresses(ctx, (FFICallBack) wakuGoCallback, resp);
+	waku_listen_addresses(ctx, (FFICallBack) logosGoCallback, resp);
 }
 static void cGoWakuGetMyENR(void* ctx, void* resp) {
-	waku_get_my_enr(ctx, (FFICallBack) wakuGoCallback, resp);
+	waku_get_my_enr(ctx, (FFICallBack) logosGoCallback, resp);
 }
 static void cGoWakuGetMyPeerId(void* ctx, void* resp) {
-	waku_get_my_peerid(ctx, (FFICallBack) wakuGoCallback, resp);
+	waku_get_my_peerid(ctx, (FFICallBack) logosGoCallback, resp);
 }
 static void cGoWakuPingPeer(void* ctx, const char* peerAddr, int timeoutMs, void* resp) {
-	waku_ping_peer(ctx, (FFICallBack) wakuGoCallback, resp, peerAddr, timeoutMs);
+	waku_ping_peer(ctx, (FFICallBack) logosGoCallback, resp, peerAddr, timeoutMs);
 }
 static void cGoWakuGetPeersInMesh(void* ctx, const char* pubSubTopic, void* resp) {
-	waku_relay_get_peers_in_mesh(ctx, (FFICallBack) wakuGoCallback, resp, pubSubTopic);
+	waku_relay_get_peers_in_mesh(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic);
 }
 static void cGoWakuGetNumPeersInMesh(void* ctx, const char* pubSubTopic, void* resp) {
-	waku_relay_get_num_peers_in_mesh(ctx, (FFICallBack) wakuGoCallback, resp, pubSubTopic);
+	waku_relay_get_num_peers_in_mesh(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic);
 }
 static void cGoWakuGetNumConnectedRelayPeers(void* ctx, const char* pubSubTopic, void* resp) {
-	waku_relay_get_num_connected_peers(ctx, (FFICallBack) wakuGoCallback, resp, pubSubTopic);
+	waku_relay_get_num_connected_peers(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic);
 }
 static void cGoWakuGetConnectedRelayPeers(void* ctx, const char* pubSubTopic, void* resp) {
-	waku_relay_get_connected_peers(ctx, (FFICallBack) wakuGoCallback, resp, pubSubTopic);
+	waku_relay_get_connected_peers(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic);
 }
 static void cGoWakuGetConnectedPeers(void* ctx, void* resp) {
-	waku_get_connected_peers(ctx, (FFICallBack) wakuGoCallback, resp);
+	waku_get_connected_peers(ctx, (FFICallBack) logosGoCallback, resp);
 }
 static void cGoWakuGetPeerIdsFromPeerStore(void* ctx, void* resp) {
-	waku_get_peerids_from_peerstore(ctx, (FFICallBack) wakuGoCallback, resp);
+	waku_get_peerids_from_peerstore(ctx, (FFICallBack) logosGoCallback, resp);
 }
 static void cGoWakuGetConnectedPeersInfo(void* ctx, void* resp) {
-	waku_get_connected_peers_info(ctx, (FFICallBack) wakuGoCallback, resp);
+	waku_get_connected_peers_info(ctx, (FFICallBack) logosGoCallback, resp);
 }
 static void cGoWakuStoreQuery(void* ctx, const char* jsonQuery, const char* peerAddr, int timeoutMs, void* resp) {
-	waku_store_query(ctx, (FFICallBack) wakuGoCallback, resp, jsonQuery, peerAddr, timeoutMs);
+	waku_store_query(ctx, (FFICallBack) logosGoCallback, resp, jsonQuery, peerAddr, timeoutMs);
 }
 static void cGoWakuPeerExchangeQuery(void* ctx, uint64_t numPeers, void* resp) {
-	waku_peer_exchange_request(ctx, (FFICallBack) wakuGoCallback, resp, numPeers);
+	waku_peer_exchange_request(ctx, (FFICallBack) logosGoCallback, resp, numPeers);
 }
 static void cGoWakuGetPeerIdsByProtocol(void* ctx, const char* protocol, void* resp) {
-	waku_get_peerids_by_protocol(ctx, (FFICallBack) wakuGoCallback, resp, protocol);
+	waku_get_peerids_by_protocol(ctx, (FFICallBack) logosGoCallback, resp, protocol);
 }
 static void cGoWakuDnsDiscovery(void* ctx, const char* entTreeUrl, const char* nameDnsServer, int timeoutMs, void* resp) {
-	waku_dns_discovery(ctx, (FFICallBack) wakuGoCallback, resp, entTreeUrl, nameDnsServer, timeoutMs);
+	waku_dns_discovery(ctx, (FFICallBack) logosGoCallback, resp, entTreeUrl, nameDnsServer, timeoutMs);
 }
 static void cGoWakuIsOnline(void* ctx, void* resp) {
-	waku_is_online(ctx, (FFICallBack) wakuGoCallback, resp);
+	waku_is_online(ctx, (FFICallBack) logosGoCallback, resp);
 }
 static void cGoWakuGetMetrics(void* ctx, void* resp) {
-	waku_get_metrics(ctx, (FFICallBack) wakuGoCallback, resp);
+	waku_get_metrics(ctx, (FFICallBack) logosGoCallback, resp);
 }
 */
 import "C"
 
-import (
-	"errors"
-	"sync"
-	"unsafe"
-)
-
-// Handle is an opaque pointer to a node context owned by the C library.
-type Handle = unsafe.Pointer
-
-// RetOK is the return code callbacks report on success.
-const RetOK = C.RET_OK
-
-// EventHandler receives every event libwaku emits for a node: the raw
-// event JSON when ret == RetOK, an error message otherwise.
-type EventHandler func(ret int, msg string)
-
-// eventHandlers maps a node handle to the Go function that receives its
-// events. The shared C event callback looks the handler up by handle.
-var (
-	eventHandlersMu sync.RWMutex
-	eventHandlers   = make(map[Handle]EventHandler)
-)
-
-//export wakuGoCallback
-func wakuGoCallback(ret C.int, msg *C.char, length C.size_t, resp unsafe.Pointer) {
-	if resp == nil {
-		return
-	}
-	r := (*C.wakuResp)(resp)
-	r.ret = ret
-	r.msg = msg
-	r.len = length
-	wg := (*sync.WaitGroup)(r.wg)
-	wg.Done()
-}
-
-//export wakuEventCallback
-func wakuEventCallback(ret C.int, msg *C.char, length C.size_t, userData unsafe.Pointer) {
-	eventHandlersMu.RLock()
-	fn := eventHandlers[userData] // userData carries the node's handle
-	eventHandlersMu.RUnlock()
-	if fn != nil {
-		fn(int(ret), C.GoStringN(msg, C.int(length)))
-	}
-}
-
-// call runs a synchronous libwaku entry point that reports its result
-// through the response callback, blocks until it completes, and returns the
-// callback message (on RetOK) or an error built from it.
-func call(invoke func(resp unsafe.Pointer)) (string, error) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	resp := C.allocWakuResp(unsafe.Pointer(&wg))
-	defer C.freeWakuResp(resp)
-
-	invoke(resp)
-	wg.Wait()
-
-	msg := C.GoStringN(C.wakuRespMsg(resp), C.int(C.wakuRespLen(resp)))
-	if C.wakuRespRet(resp) != C.RET_OK {
-		return "", errors.New(msg)
-	}
-	return msg, nil
-}
-
-// New builds a node from a WakuConfig JSON string and returns its handle.
-// The handle must be released with Destroy.
-func New(configJSON string) (Handle, error) {
-	cCfg := C.CString(configJSON)
-	defer C.free(unsafe.Pointer(cCfg))
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	resp := C.allocWakuResp(unsafe.Pointer(&wg))
-	defer C.freeWakuResp(resp)
-
-	ctx := C.cGoWakuNew(cCfg, resp)
-	wg.Wait()
-
-	if C.wakuRespRet(resp) != C.RET_OK || ctx == nil {
-		msg := C.GoStringN(C.wakuRespMsg(resp), C.int(C.wakuRespLen(resp)))
-		if msg == "" {
-			msg = "waku_new returned no context"
-		}
-		return nil, errors.New(msg)
-	}
-	return Handle(ctx), nil
-}
-
-// SetEventHandler registers fn to receive events for the node and wires up
-// the underlying C event callback.
-func SetEventHandler(h Handle, fn EventHandler) {
-	eventHandlersMu.Lock()
-	eventHandlers[h] = fn
-	eventHandlersMu.Unlock()
-	C.cGoWakuSetEventCallback(h)
-}
-
-// Start starts the node.
-func Start(h Handle) error {
-	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuStart(h, resp) })
-	return err
-}
-
-// Stop stops the node.
-func Stop(h Handle) error {
-	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuStop(h, resp) })
-	return err
-}
-
-// Destroy releases the node context and unregisters its event handler.
-func Destroy(h Handle) error {
-	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuDestroy(h, resp) })
-	if err == nil {
-		eventHandlersMu.Lock()
-		delete(eventHandlers, h)
-		eventHandlersMu.Unlock()
-	}
-	return err
-}
+import "unsafe"
 
 // StartDiscV5 starts DiscV5 peer discovery.
 func StartDiscV5(h Handle) error {
