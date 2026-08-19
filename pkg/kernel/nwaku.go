@@ -39,7 +39,17 @@ type WakuNode struct {
 	TopicHealthChan      chan topicHealth
 	ConnectionChangeChan chan connectionChange
 	nodeName             string
+	listeners            []ffi.ListenerID
 	_                    timesource.Timesource
+}
+
+// kernelEvents are the library's wire names for the events this node consumes.
+// The library registers one listener per name; the eventType inside each
+// event's JSON is what OnEvent switches on.
+var kernelEvents = []string{
+	"onReceivedMessage",
+	"onTopicHealthChange",
+	"onConnectionChange",
 }
 
 func NewWakuNode(config *common.WakuConfig, nodeName string) (*WakuNode, error) {
@@ -64,7 +74,15 @@ func NewWakuNode(config *common.WakuConfig, nodeName string) (*WakuNode, error) 
 	n.TopicHealthChan = make(chan topicHealth, TopicHealthChanBufferSize)
 	n.ConnectionChangeChan = make(chan connectionChange, ConnectionChangeChanBufferSize)
 
-	ffi.SetEventHandler(n.wakuCtx, n.onRawEvent)
+	for _, name := range kernelEvents {
+		id, err := ffi.AddEventListener(n.wakuCtx, name, n.onRawEvent)
+		if err != nil {
+			Error("error adding %s listener for %s: %v", name, nodeName, err)
+			_ = ffi.Destroy(n.wakuCtx)
+			return nil, err
+		}
+		n.listeners = append(n.listeners, id)
+	}
 
 	Debug("Successfully created WakuNode: %s", nodeName)
 	return n, nil
@@ -576,6 +594,14 @@ func (n *WakuNode) Destroy() error {
 	}
 
 	Debug("Destroying %v", n.nodeName)
+
+	// Drop the listeners before the context goes away.
+	for _, id := range n.listeners {
+		if err := ffi.RemoveEventListener(n.wakuCtx, id); err != nil {
+			Warn("failed to remove event listener for %v: %v", n.nodeName, err)
+		}
+	}
+	n.listeners = nil
 
 	if err := ffi.Destroy(n.wakuCtx); err != nil {
 		errMsg := "error WakuDestroy: " + err.Error()

@@ -2,6 +2,16 @@
 
 Go bindings for the Waku library.
 
+## Packages
+
+- **`pkg/messaging`** — the high-level Messaging API, and the one to reach for.
+  A `MessagingClient` mirrors the Nim `MessagingClient`: it owns a node and
+  exposes `Start`/`Stop`/`Close`, `Subscribe`/`Unsubscribe`, `Send`, and a
+  typed `Events()` stream. See `examples/messaging` for a runnable demo.
+- **`pkg/kernel`** — the low-level kernel (`waku_*`) protocols: relay, store,
+  filter, lightpush, discovery and peer management. Unsupported and subject to
+  change without notice.
+
 ## Install
 
 ```
