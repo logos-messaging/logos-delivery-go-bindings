@@ -18,12 +18,14 @@ const (
 )
 
 // messagingEvents is the set of events a MessagingClient subscribes to.
-var messagingEvents = []string{
-	wireMessageReceived,
-	wireMessageSent,
-	wireMessagePropagated,
-	wireMessageError,
-	wireConnectionStatusChange,
+func messagingEvents() []string {
+	return []string{
+		wireMessageReceived,
+		wireMessageSent,
+		wireMessagePropagated,
+		wireMessageError,
+		wireConnectionStatusChange,
+	}
 }
 
 // ConnectionStatus reports the node's overall connectivity. It mirrors the Nim
@@ -73,9 +75,16 @@ type Message struct {
 	Ephemeral bool
 }
 
-// Event is the sealed interface every event delivered on
-// MessagingClient.Events() implements. Consumers type-switch over the concrete
-// types; the set only grows, so keep a default branch.
+// Event is the interface every event delivered on MessagingClient.Events()
+// implements. Consumers type-switch over the concrete types; the set only
+// grows, so keep a default branch.
+//
+// It is sealed: isMessagingEvent is unexported, so only types declared in this
+// package can satisfy Event. That is what makes the type switch trustworthy —
+// no other package can introduce an Event, and every value on the channel is
+// one of the types below. Adding an event type is then a backwards-compatible
+// change, because callers cannot have exhaustively matched on a closed set
+// they do not control.
 type Event interface {
 	isMessagingEvent()
 }
@@ -120,10 +129,15 @@ func (MessagePropagatedEvent) isMessagingEvent() {}
 func (MessageErrorEvent) isMessagingEvent()      {}
 func (ConnectionStatusEvent) isMessagingEvent()  {}
 
-// wireBytes decodes a byte field as liblogosdelivery serialises it. A received
-// WakuMessage crosses the boundary through Nim's std/json, which renders
-// seq[byte] as an array of integers; base64 strings and null are accepted too,
-// so a field that switches to the encoding used on the send path still decodes.
+// wireBytes decodes a byte field as liblogosdelivery serialises it, which is
+// not base64. Only the send path is base64: logosdelivery_send decodes the
+// payload it is given, and the channel events base64-encode explicitly. The
+// messaging events do neither — a received WakuMessage is rendered by Nim's
+// std/json, whose default for seq[byte] is an array of integers, so `hello`
+// arrives as [104,101,108,108,111] (see the captures in event_test.go).
+//
+// Base64 strings and null decode too, so the day the library normalises its
+// encodings this keeps working instead of silently dropping every message.
 type wireBytes []byte
 
 func (b *wireBytes) UnmarshalJSON(data []byte) error {
@@ -132,8 +146,7 @@ func (b *wireBytes) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	if data[0] == '[' {
-		// Not []byte: encoding/json reads that from a base64 string, never
-		// from an array.
+		// Not []byte: encoding/json reads that from a base64 string only.
 		var nums []int
 		if err := json.Unmarshal(data, &nums); err != nil {
 			return err

@@ -61,10 +61,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	requestID, err := client.Send(ctx, messaging.Envelope{
-		ContentTopic: contentTopic,
-		Payload:      []byte("hello from logos-delivery-go-bindings"),
-	})
+	requestID, err := client.Send(ctx, contentTopic, []byte("hello from logos-delivery-go-bindings"), false)
 	if err != nil {
 		log.Fatalf("send: %v", err)
 	}

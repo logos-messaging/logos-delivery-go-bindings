@@ -56,7 +56,7 @@ func New(cfg Config) (*MessagingClient, error) {
 	c := &MessagingClient{h: h, events: make(chan Event, eventBufferSize)}
 
 	// Register before Start so no event emitted during startup is missed.
-	for _, name := range messagingEvents {
+	for _, name := range messagingEvents() {
 		id, err := ffi.AddEventListener(h, name, c.onEvent)
 		if err != nil {
 			_ = c.Close()
@@ -182,13 +182,17 @@ type wireEnvelope struct {
 	Ephemeral    bool   `json:"ephemeral"`
 }
 
-// Send publishes env and returns the RequestID that correlates it with the
-// MessageSentEvent, MessagePropagatedEvent or MessageErrorEvent it produces.
+// Send publishes payload on contentTopic and returns the RequestID that
+// correlates it with the MessageSentEvent, MessagePropagatedEvent or
+// MessageErrorEvent it produces. An ephemeral message is transient, so stores
+// do not retain it.
 //
 // Returning marks the message accepted by the send service, not delivered:
 // delivery is reported on Events(). If ctx is cancelled while the library is
 // still working, Send returns ctx.Err() and the message may still go out.
-func (c *MessagingClient) Send(ctx context.Context, env Envelope) (RequestID, error) {
+func (c *MessagingClient) Send(
+	ctx context.Context, contentTopic ContentTopic, payload []byte, ephemeral bool,
+) (RequestID, error) {
 	if err := c.check(); err != nil {
 		return "", err
 	}
@@ -197,12 +201,12 @@ func (c *MessagingClient) Send(ctx context.Context, env Envelope) (RequestID, er
 	}
 
 	msg, err := json.Marshal(wireEnvelope{
-		ContentTopic: env.ContentTopic,
-		Payload:      base64.StdEncoding.EncodeToString(env.Payload),
-		Ephemeral:    env.Ephemeral,
+		ContentTopic: contentTopic,
+		Payload:      base64.StdEncoding.EncodeToString(payload),
+		Ephemeral:    ephemeral,
 	})
 	if err != nil {
-		return "", fmt.Errorf("messaging: marshal envelope: %w", err)
+		return "", fmt.Errorf("messaging: marshal message: %w", err)
 	}
 
 	type result struct {

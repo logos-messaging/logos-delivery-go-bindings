@@ -56,7 +56,7 @@ func TestSendReceiveRoundTrip(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	requestID, err := client.Send(ctx, Envelope{ContentTopic: contentTopic, Payload: payload})
+	requestID, err := client.Send(ctx, contentTopic, payload, false)
 	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}

@@ -33,10 +33,7 @@
 //	if err := client.Subscribe(topic); err != nil {
 //		return err
 //	}
-//	requestID, err := client.Send(ctx, messaging.Envelope{
-//		ContentTopic: topic,
-//		Payload:      []byte("hello"),
-//	})
+//	requestID, err := client.Send(ctx, topic, []byte("hello"), false)
 //
 // Send returns once the message is accepted, not once it is delivered.
 // Delivery is reported asynchronously on Events(), correlated by RequestID:
