@@ -82,10 +82,19 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.4.0
+          # `config verify` fetches its JSON schema from golangci-lint.run on
+          # every run and fails the job when that request times out. An invalid
+          # config still fails the lint run itself, so skip the pre-check.
+          verify: false
 
       - name: go test messaging (run)
         # Fast, network-free unit tests for the Messaging API + its ffi bridge.
         run: go test ./pkg/messaging/... ./internal/ffi/...
+
+      - name: go test messaging integration (compile)
+        # The integration suite needs outbound connectivity, so it is behind a
+        # build tag. Compile it here so it cannot rot unnoticed.
+        run: go test -tags integration -run '^$' ./pkg/messaging/...
 
       - name: go test kernel (compile)
         # The kernel suite is heavy integration (runs nightly in CI.yml), so

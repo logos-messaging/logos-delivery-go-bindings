@@ -1,102 +1,155 @@
 // This file holds the low-level Kernel (waku_*) tier of the single
-// liblogosdelivery library (declared in liblogosdelivery_kernel.h). The shared
-// plumbing — Handle, RetOK, EventHandler, the node lifecycle, the response/event
-// callbacks and the call helper — lives in liblogosdelivery.go (same package).
+// liblogosdelivery library. The shared plumbing — Handle, RetOK, EventHandler,
+// the node lifecycle, the reply callbacks and the await helper — lives in
+// liblogosdelivery.go (same package).
+//
+// The kernel entry points follow the same two generated shapes as the Messaging
+// ones: no-argument calls take a raw LogosDeliveryScalarRawFn, everything else
+// takes a per-call reply callback plus a <Name>Req argument struct.
 package ffi
 
 /*
-#include <liblogosdelivery_kernel.h>
+#include <liblogosdelivery.h>
+#include <stdint.h>
 #include <stdlib.h>
 
-// logosGoCallback (the synchronous response callback) is defined in
-// liblogosdelivery.go; the kernel wrappers below reuse it.
-extern void logosGoCallback(int ret, char* msg, size_t len, void* resp);
-static void cGoWakuStartDiscV5(void* ctx, void* resp) {
-	waku_start_discv5(ctx, (FFICallBack) logosGoCallback, resp);
+// logosScalarReply and logosReply are defined in liblogosdelivery.go; the
+// kernel wrappers below reuse them.
+extern void logosScalarReply(int callerRet, char* msg, size_t len, void* userData);
+extern void logosReply(int errCode, char* reply, char* errMsg, void* userData);
+
+static int cGoWakuStartDiscV5(void* ctx, uintptr_t ud) {
+	return waku_start_discv5(ctx, (LogosDeliveryScalarRawFn) logosScalarReply, (void*) ud);
 }
-static void cGoWakuStopDiscV5(void* ctx, void* resp) {
-	waku_stop_discv5(ctx, (FFICallBack) logosGoCallback, resp);
+static int cGoWakuStopDiscV5(void* ctx, uintptr_t ud) {
+	return waku_stop_discv5(ctx, (LogosDeliveryScalarRawFn) logosScalarReply, (void*) ud);
 }
-static void cGoWakuVersion(void* ctx, void* resp) {
-	waku_version(ctx, (FFICallBack) logosGoCallback, resp);
+static int cGoWakuVersion(void* ctx, uintptr_t ud) {
+	return waku_version(ctx, (LogosDeliveryScalarRawFn) logosScalarReply, (void*) ud);
 }
-static void cGoWakuRelayPublish(void* ctx, const char* pubSubTopic, const char* jsonWakuMessage, int timeoutMs, void* resp) {
-	waku_relay_publish(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic, jsonWakuMessage, timeoutMs);
+static int cGoWakuRelayPublish(void* ctx, const char* pubSubTopic, const char* jsonWakuMessage, uint32_t timeoutMs, uintptr_t ud) {
+	WakuRelayPublishReq req;
+	req.pubSubTopic = pubSubTopic;
+	req.jsonWakuMessage = jsonWakuMessage;
+	req.timeoutMs = timeoutMs;
+	return waku_relay_publish(ctx, (LogosDeliveryWakuRelayPublishReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuRelaySubscribe(void* ctx, const char* pubSubTopic, void* resp) {
-	waku_relay_subscribe(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic);
+static int cGoWakuRelaySubscribe(void* ctx, const char* pubSubTopic, uintptr_t ud) {
+	WakuRelaySubscribeReq req;
+	req.pubSubTopic = pubSubTopic;
+	return waku_relay_subscribe(ctx, (LogosDeliveryWakuRelaySubscribeReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuRelayAddProtectedShard(void* ctx, int clusterId, int shardId, char* publicKey, void* resp) {
-	waku_relay_add_protected_shard(ctx, (FFICallBack) logosGoCallback, resp, clusterId, shardId, publicKey);
+static int cGoWakuRelayAddProtectedShard(void* ctx, uint16_t clusterId, uint16_t shardId, const char* publicKey, uintptr_t ud) {
+	WakuRelayAddProtectedShardReq req;
+	req.clusterId = clusterId;
+	req.shardId = shardId;
+	req.publicKey = publicKey;
+	return waku_relay_add_protected_shard(ctx, (LogosDeliveryWakuRelayAddProtectedShardReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuRelayUnsubscribe(void* ctx, const char* pubSubTopic, void* resp) {
-	waku_relay_unsubscribe(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic);
+static int cGoWakuRelayUnsubscribe(void* ctx, const char* pubSubTopic, uintptr_t ud) {
+	WakuRelayUnsubscribeReq req;
+	req.pubSubTopic = pubSubTopic;
+	return waku_relay_unsubscribe(ctx, (LogosDeliveryWakuRelayUnsubscribeReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuConnect(void* ctx, const char* peerMultiAddr, int timeoutMs, void* resp) {
-	waku_connect(ctx, (FFICallBack) logosGoCallback, resp, peerMultiAddr, timeoutMs);
+static int cGoWakuConnect(void* ctx, const char* peerMultiAddr, uint32_t timeoutMs, uintptr_t ud) {
+	WakuConnectReq req;
+	req.peerMultiAddr = peerMultiAddr;
+	req.timeoutMs = timeoutMs;
+	return waku_connect(ctx, (LogosDeliveryWakuConnectReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuDialPeer(void* ctx, const char* peerMultiAddr, const char* protocol, int timeoutMs, void* resp) {
-	waku_dial_peer(ctx, (FFICallBack) logosGoCallback, resp, peerMultiAddr, protocol, timeoutMs);
+static int cGoWakuDialPeer(void* ctx, const char* peerMultiAddr, const char* protocol, uint32_t timeoutMs, uintptr_t ud) {
+	WakuDialPeerReq req;
+	req.peerMultiAddr = peerMultiAddr;
+	req.protocol = protocol;
+	req.timeoutMs = timeoutMs;
+	return waku_dial_peer(ctx, (LogosDeliveryWakuDialPeerReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuDialPeerById(void* ctx, const char* peerId, const char* protocol, int timeoutMs, void* resp) {
-	waku_dial_peer_by_id(ctx, (FFICallBack) logosGoCallback, resp, peerId, protocol, timeoutMs);
+static int cGoWakuDialPeerById(void* ctx, const char* peerId, const char* protocol, uint32_t timeoutMs, uintptr_t ud) {
+	WakuDialPeerByIdReq req;
+	req.peerId = peerId;
+	req.protocol = protocol;
+	req.timeoutMs = timeoutMs;
+	return waku_dial_peer_by_id(ctx, (LogosDeliveryWakuDialPeerByIdReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuDisconnectPeerById(void* ctx, const char* peerId, void* resp) {
-	waku_disconnect_peer_by_id(ctx, (FFICallBack) logosGoCallback, resp, peerId);
+static int cGoWakuDisconnectPeerById(void* ctx, const char* peerId, uintptr_t ud) {
+	WakuDisconnectPeerByIdReq req;
+	req.peerId = peerId;
+	return waku_disconnect_peer_by_id(ctx, (LogosDeliveryWakuDisconnectPeerByIdReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuDisconnectAllPeers(void* ctx, void* resp) {
-	waku_disconnect_all_peers(ctx, (FFICallBack) logosGoCallback, resp);
+static int cGoWakuDisconnectAllPeers(void* ctx, uintptr_t ud) {
+	return waku_disconnect_all_peers(ctx, (LogosDeliveryScalarRawFn) logosScalarReply, (void*) ud);
 }
-static void cGoWakuListenAddresses(void* ctx, void* resp) {
-	waku_listen_addresses(ctx, (FFICallBack) logosGoCallback, resp);
+static int cGoWakuListenAddresses(void* ctx, uintptr_t ud) {
+	return waku_listen_addresses(ctx, (LogosDeliveryScalarRawFn) logosScalarReply, (void*) ud);
 }
-static void cGoWakuGetMyENR(void* ctx, void* resp) {
-	waku_get_my_enr(ctx, (FFICallBack) logosGoCallback, resp);
+static int cGoWakuGetMyENR(void* ctx, uintptr_t ud) {
+	return waku_get_my_enr(ctx, (LogosDeliveryScalarRawFn) logosScalarReply, (void*) ud);
 }
-static void cGoWakuGetMyPeerId(void* ctx, void* resp) {
-	waku_get_my_peerid(ctx, (FFICallBack) logosGoCallback, resp);
+static int cGoWakuGetMyPeerId(void* ctx, uintptr_t ud) {
+	return waku_get_my_peerid(ctx, (LogosDeliveryScalarRawFn) logosScalarReply, (void*) ud);
 }
-static void cGoWakuPingPeer(void* ctx, const char* peerAddr, int timeoutMs, void* resp) {
-	waku_ping_peer(ctx, (FFICallBack) logosGoCallback, resp, peerAddr, timeoutMs);
+static int cGoWakuPingPeer(void* ctx, const char* peerAddr, uint32_t timeoutMs, uintptr_t ud) {
+	WakuPingPeerReq req;
+	req.peerAddr = peerAddr;
+	req.timeoutMs = timeoutMs;
+	return waku_ping_peer(ctx, (LogosDeliveryWakuPingPeerReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuGetPeersInMesh(void* ctx, const char* pubSubTopic, void* resp) {
-	waku_relay_get_peers_in_mesh(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic);
+static int cGoWakuGetPeersInMesh(void* ctx, const char* pubSubTopic, uintptr_t ud) {
+	WakuRelayGetPeersInMeshReq req;
+	req.pubSubTopic = pubSubTopic;
+	return waku_relay_get_peers_in_mesh(ctx, (LogosDeliveryWakuRelayGetPeersInMeshReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuGetNumPeersInMesh(void* ctx, const char* pubSubTopic, void* resp) {
-	waku_relay_get_num_peers_in_mesh(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic);
+static int cGoWakuGetNumPeersInMesh(void* ctx, const char* pubSubTopic, uintptr_t ud) {
+	WakuRelayGetNumPeersInMeshReq req;
+	req.pubSubTopic = pubSubTopic;
+	return waku_relay_get_num_peers_in_mesh(ctx, (LogosDeliveryWakuRelayGetNumPeersInMeshReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuGetNumConnectedRelayPeers(void* ctx, const char* pubSubTopic, void* resp) {
-	waku_relay_get_num_connected_peers(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic);
+static int cGoWakuGetNumConnectedRelayPeers(void* ctx, const char* pubSubTopic, uintptr_t ud) {
+	WakuRelayGetNumConnectedPeersReq req;
+	req.pubSubTopic = pubSubTopic;
+	return waku_relay_get_num_connected_peers(ctx, (LogosDeliveryWakuRelayGetNumConnectedPeersReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuGetConnectedRelayPeers(void* ctx, const char* pubSubTopic, void* resp) {
-	waku_relay_get_connected_peers(ctx, (FFICallBack) logosGoCallback, resp, pubSubTopic);
+static int cGoWakuGetConnectedRelayPeers(void* ctx, const char* pubSubTopic, uintptr_t ud) {
+	WakuRelayGetConnectedPeersReq req;
+	req.pubSubTopic = pubSubTopic;
+	return waku_relay_get_connected_peers(ctx, (LogosDeliveryWakuRelayGetConnectedPeersReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuGetConnectedPeers(void* ctx, void* resp) {
-	waku_get_connected_peers(ctx, (FFICallBack) logosGoCallback, resp);
+static int cGoWakuGetConnectedPeers(void* ctx, uintptr_t ud) {
+	return waku_get_connected_peers(ctx, (LogosDeliveryScalarRawFn) logosScalarReply, (void*) ud);
 }
-static void cGoWakuGetPeerIdsFromPeerStore(void* ctx, void* resp) {
-	waku_get_peerids_from_peerstore(ctx, (FFICallBack) logosGoCallback, resp);
+static int cGoWakuGetPeerIdsFromPeerStore(void* ctx, uintptr_t ud) {
+	return waku_get_peerids_from_peerstore(ctx, (LogosDeliveryScalarRawFn) logosScalarReply, (void*) ud);
 }
-static void cGoWakuGetConnectedPeersInfo(void* ctx, void* resp) {
-	waku_get_connected_peers_info(ctx, (FFICallBack) logosGoCallback, resp);
+static int cGoWakuGetConnectedPeersInfo(void* ctx, uintptr_t ud) {
+	return waku_get_connected_peers_info(ctx, (LogosDeliveryScalarRawFn) logosScalarReply, (void*) ud);
 }
-static void cGoWakuStoreQuery(void* ctx, const char* jsonQuery, const char* peerAddr, int timeoutMs, void* resp) {
-	waku_store_query(ctx, (FFICallBack) logosGoCallback, resp, jsonQuery, peerAddr, timeoutMs);
+static int cGoWakuStoreQuery(void* ctx, const char* jsonQuery, const char* peerAddr, int32_t timeoutMs, uintptr_t ud) {
+	WakuStoreQueryReq req;
+	req.jsonQuery = jsonQuery;
+	req.peerAddr = peerAddr;
+	req.timeoutMs = timeoutMs;
+	return waku_store_query(ctx, (LogosDeliveryWakuStoreQueryReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuPeerExchangeQuery(void* ctx, uint64_t numPeers, void* resp) {
-	waku_peer_exchange_request(ctx, (FFICallBack) logosGoCallback, resp, numPeers);
+static int cGoWakuPeerExchangeQuery(void* ctx, uint64_t numPeers, uintptr_t ud) {
+	return waku_peer_exchange_request(ctx, (LogosDeliveryScalarRawFn) logosScalarReply, (void*) ud, numPeers);
 }
-static void cGoWakuGetPeerIdsByProtocol(void* ctx, const char* protocol, void* resp) {
-	waku_get_peerids_by_protocol(ctx, (FFICallBack) logosGoCallback, resp, protocol);
+static int cGoWakuGetPeerIdsByProtocol(void* ctx, const char* protocol, uintptr_t ud) {
+	WakuGetPeeridsByProtocolReq req;
+	req.protocol = protocol;
+	return waku_get_peerids_by_protocol(ctx, (LogosDeliveryWakuGetPeeridsByProtocolReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuDnsDiscovery(void* ctx, const char* entTreeUrl, const char* nameDnsServer, int timeoutMs, void* resp) {
-	waku_dns_discovery(ctx, (FFICallBack) logosGoCallback, resp, entTreeUrl, nameDnsServer, timeoutMs);
+static int cGoWakuDnsDiscovery(void* ctx, const char* enrTreeUrl, const char* nameDnsServer, int32_t timeoutMs, uintptr_t ud) {
+	WakuDnsDiscoveryReq req;
+	req.enrTreeUrl = enrTreeUrl;
+	req.nameDnsServer = nameDnsServer;
+	req.timeoutMs = timeoutMs;
+	return waku_dns_discovery(ctx, (LogosDeliveryWakuDnsDiscoveryReplyFn) logosReply, (void*) ud, &req);
 }
-static void cGoWakuIsOnline(void* ctx, void* resp) {
-	waku_is_online(ctx, (FFICallBack) logosGoCallback, resp);
+static int cGoWakuIsOnline(void* ctx, uintptr_t ud) {
+	return waku_is_online(ctx, (LogosDeliveryScalarRawFn) logosScalarReply, (void*) ud);
 }
-static void cGoWakuGetMetrics(void* ctx, void* resp) {
-	waku_get_metrics(ctx, (FFICallBack) logosGoCallback, resp);
+static int cGoWakuGetMetrics(void* ctx, uintptr_t ud) {
+	return waku_get_metrics(ctx, (LogosDeliveryScalarRawFn) logosScalarReply, (void*) ud);
 }
 */
 import "C"
@@ -105,19 +158,19 @@ import "unsafe"
 
 // StartDiscV5 starts DiscV5 peer discovery.
 func StartDiscV5(h Handle) error {
-	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuStartDiscV5(h, resp) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuStartDiscV5(h, ud) })
 	return err
 }
 
 // StopDiscV5 stops DiscV5 peer discovery.
 func StopDiscV5(h Handle) error {
-	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuStopDiscV5(h, resp) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuStopDiscV5(h, ud) })
 	return err
 }
 
-// Version returns the libwaku version string.
+// Version returns the library version string.
 func Version(h Handle) (string, error) {
-	return call(func(resp unsafe.Pointer) { C.cGoWakuVersion(h, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuVersion(h, ud) })
 }
 
 // RelayPublish publishes a WakuMessage JSON on a pubsub topic and returns
@@ -127,14 +180,16 @@ func RelayPublish(h Handle, pubsubTopic, messageJSON string, timeoutMs int) (str
 	cMsg := C.CString(messageJSON)
 	defer C.free(unsafe.Pointer(cTopic))
 	defer C.free(unsafe.Pointer(cMsg))
-	return call(func(resp unsafe.Pointer) { C.cGoWakuRelayPublish(h, cTopic, cMsg, C.int(timeoutMs), resp) })
+	return await(func(ud C.uintptr_t) C.int {
+		return C.cGoWakuRelayPublish(h, cTopic, cMsg, C.uint32_t(timeoutMs), ud)
+	})
 }
 
 // RelaySubscribe subscribes the node to a pubsub topic.
 func RelaySubscribe(h Handle, pubsubTopic string) error {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuRelaySubscribe(h, cTopic, resp) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuRelaySubscribe(h, cTopic, ud) })
 	return err
 }
 
@@ -143,8 +198,8 @@ func RelaySubscribe(h Handle, pubsubTopic string) error {
 func RelayAddProtectedShard(h Handle, clusterID, shardID int, publicKeyHex string) error {
 	cPublicKey := C.CString(publicKeyHex)
 	defer C.free(unsafe.Pointer(cPublicKey))
-	_, err := call(func(resp unsafe.Pointer) {
-		C.cGoWakuRelayAddProtectedShard(h, C.int(clusterID), C.int(shardID), cPublicKey, resp)
+	_, err := await(func(ud C.uintptr_t) C.int {
+		return C.cGoWakuRelayAddProtectedShard(h, C.uint16_t(clusterID), C.uint16_t(shardID), cPublicKey, ud)
 	})
 	return err
 }
@@ -153,7 +208,7 @@ func RelayAddProtectedShard(h Handle, clusterID, shardID int, publicKeyHex strin
 func RelayUnsubscribe(h Handle, pubsubTopic string) error {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuRelayUnsubscribe(h, cTopic, resp) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuRelayUnsubscribe(h, cTopic, ud) })
 	return err
 }
 
@@ -161,7 +216,7 @@ func RelayUnsubscribe(h Handle, pubsubTopic string) error {
 func Connect(h Handle, peerMultiAddr string, timeoutMs int) error {
 	cAddr := C.CString(peerMultiAddr)
 	defer C.free(unsafe.Pointer(cAddr))
-	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuConnect(h, cAddr, C.int(timeoutMs), resp) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuConnect(h, cAddr, C.uint32_t(timeoutMs), ud) })
 	return err
 }
 
@@ -171,7 +226,9 @@ func DialPeer(h Handle, peerMultiAddr, protocol string, timeoutMs int) error {
 	cProtocol := C.CString(protocol)
 	defer C.free(unsafe.Pointer(cAddr))
 	defer C.free(unsafe.Pointer(cProtocol))
-	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuDialPeer(h, cAddr, cProtocol, C.int(timeoutMs), resp) })
+	_, err := await(func(ud C.uintptr_t) C.int {
+		return C.cGoWakuDialPeer(h, cAddr, cProtocol, C.uint32_t(timeoutMs), ud)
+	})
 	return err
 }
 
@@ -181,7 +238,9 @@ func DialPeerByID(h Handle, peerID, protocol string, timeoutMs int) error {
 	cProtocol := C.CString(protocol)
 	defer C.free(unsafe.Pointer(cPeerID))
 	defer C.free(unsafe.Pointer(cProtocol))
-	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuDialPeerById(h, cPeerID, cProtocol, C.int(timeoutMs), resp) })
+	_, err := await(func(ud C.uintptr_t) C.int {
+		return C.cGoWakuDialPeerById(h, cPeerID, cProtocol, C.uint32_t(timeoutMs), ud)
+	})
 	return err
 }
 
@@ -189,30 +248,30 @@ func DialPeerByID(h Handle, peerID, protocol string, timeoutMs int) error {
 func DisconnectPeerByID(h Handle, peerID string) error {
 	cPeerID := C.CString(peerID)
 	defer C.free(unsafe.Pointer(cPeerID))
-	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuDisconnectPeerById(h, cPeerID, resp) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuDisconnectPeerById(h, cPeerID, ud) })
 	return err
 }
 
 // DisconnectAllPeers drops all peer connections.
 func DisconnectAllPeers(h Handle) error {
-	_, err := call(func(resp unsafe.Pointer) { C.cGoWakuDisconnectAllPeers(h, resp) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuDisconnectAllPeers(h, ud) })
 	return err
 }
 
 // ListenAddresses returns the node's listen multiaddresses as a
 // comma-separated list.
 func ListenAddresses(h Handle) (string, error) {
-	return call(func(resp unsafe.Pointer) { C.cGoWakuListenAddresses(h, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuListenAddresses(h, ud) })
 }
 
 // GetMyENR returns the node's ENR record.
 func GetMyENR(h Handle) (string, error) {
-	return call(func(resp unsafe.Pointer) { C.cGoWakuGetMyENR(h, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetMyENR(h, ud) })
 }
 
 // GetMyPeerID returns the node's peer id.
 func GetMyPeerID(h Handle) (string, error) {
-	return call(func(resp unsafe.Pointer) { C.cGoWakuGetMyPeerId(h, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetMyPeerId(h, ud) })
 }
 
 // PingPeer pings a peer (comma-separated multiaddresses) and returns the
@@ -220,7 +279,7 @@ func GetMyPeerID(h Handle) (string, error) {
 func PingPeer(h Handle, peerAddrs string, timeoutMs int) (string, error) {
 	cAddr := C.CString(peerAddrs)
 	defer C.free(unsafe.Pointer(cAddr))
-	return call(func(resp unsafe.Pointer) { C.cGoWakuPingPeer(h, cAddr, C.int(timeoutMs), resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuPingPeer(h, cAddr, C.uint32_t(timeoutMs), ud) })
 }
 
 // GetPeersInMesh returns the relay mesh peer ids for a pubsub topic as a
@@ -228,14 +287,14 @@ func PingPeer(h Handle, peerAddrs string, timeoutMs int) (string, error) {
 func GetPeersInMesh(h Handle, pubsubTopic string) (string, error) {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	return call(func(resp unsafe.Pointer) { C.cGoWakuGetPeersInMesh(h, cTopic, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetPeersInMesh(h, cTopic, ud) })
 }
 
 // GetNumPeersInMesh returns the relay mesh peer count for a pubsub topic.
 func GetNumPeersInMesh(h Handle, pubsubTopic string) (string, error) {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	return call(func(resp unsafe.Pointer) { C.cGoWakuGetNumPeersInMesh(h, cTopic, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetNumPeersInMesh(h, cTopic, ud) })
 }
 
 // GetNumConnectedRelayPeers returns the connected relay peer count for a
@@ -243,7 +302,7 @@ func GetNumPeersInMesh(h Handle, pubsubTopic string) (string, error) {
 func GetNumConnectedRelayPeers(h Handle, pubsubTopic string) (string, error) {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	return call(func(resp unsafe.Pointer) { C.cGoWakuGetNumConnectedRelayPeers(h, cTopic, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetNumConnectedRelayPeers(h, cTopic, ud) })
 }
 
 // GetConnectedRelayPeers returns the connected relay peer ids for a pubsub
@@ -251,24 +310,24 @@ func GetNumConnectedRelayPeers(h Handle, pubsubTopic string) (string, error) {
 func GetConnectedRelayPeers(h Handle, pubsubTopic string) (string, error) {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	return call(func(resp unsafe.Pointer) { C.cGoWakuGetConnectedRelayPeers(h, cTopic, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetConnectedRelayPeers(h, cTopic, ud) })
 }
 
 // GetConnectedPeers returns the connected peer ids as a comma-separated
 // list.
 func GetConnectedPeers(h Handle) (string, error) {
-	return call(func(resp unsafe.Pointer) { C.cGoWakuGetConnectedPeers(h, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetConnectedPeers(h, ud) })
 }
 
 // GetPeerIDsFromPeerStore returns the peer-store peer ids as a
 // comma-separated list.
 func GetPeerIDsFromPeerStore(h Handle) (string, error) {
-	return call(func(resp unsafe.Pointer) { C.cGoWakuGetPeerIdsFromPeerStore(h, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetPeerIdsFromPeerStore(h, ud) })
 }
 
 // GetConnectedPeersInfo returns the connected peers' info as JSON.
 func GetConnectedPeersInfo(h Handle) (string, error) {
-	return call(func(resp unsafe.Pointer) { C.cGoWakuGetConnectedPeersInfo(h, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetConnectedPeersInfo(h, ud) })
 }
 
 // StoreQuery runs a store query (JSON) against a peer (comma-separated
@@ -278,13 +337,15 @@ func StoreQuery(h Handle, queryJSON, peerAddrs string, timeoutMs int) (string, e
 	cAddr := C.CString(peerAddrs)
 	defer C.free(unsafe.Pointer(cQuery))
 	defer C.free(unsafe.Pointer(cAddr))
-	return call(func(resp unsafe.Pointer) { C.cGoWakuStoreQuery(h, cQuery, cAddr, C.int(timeoutMs), resp) })
+	return await(func(ud C.uintptr_t) C.int {
+		return C.cGoWakuStoreQuery(h, cQuery, cAddr, C.int32_t(timeoutMs), ud)
+	})
 }
 
 // PeerExchangeRequest asks peer exchange for numPeers peers and returns
 // the number of received peers.
 func PeerExchangeRequest(h Handle, numPeers uint64) (string, error) {
-	return call(func(resp unsafe.Pointer) { C.cGoWakuPeerExchangeQuery(h, C.uint64_t(numPeers), resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuPeerExchangeQuery(h, C.uint64_t(numPeers), ud) })
 }
 
 // GetPeerIDsByProtocol returns the peer ids supporting a protocol as a
@@ -292,7 +353,7 @@ func PeerExchangeRequest(h Handle, numPeers uint64) (string, error) {
 func GetPeerIDsByProtocol(h Handle, protocol string) (string, error) {
 	cProtocol := C.CString(protocol)
 	defer C.free(unsafe.Pointer(cProtocol))
-	return call(func(resp unsafe.Pointer) { C.cGoWakuGetPeerIdsByProtocol(h, cProtocol, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetPeerIdsByProtocol(h, cProtocol, ud) })
 }
 
 // DnsDiscovery resolves an ENR tree URL via DNS discovery and returns the
@@ -302,15 +363,17 @@ func DnsDiscovery(h Handle, enrTreeURL, nameDNSServer string, timeoutMs int) (st
 	cDNSServer := C.CString(nameDNSServer)
 	defer C.free(unsafe.Pointer(cEnrTree))
 	defer C.free(unsafe.Pointer(cDNSServer))
-	return call(func(resp unsafe.Pointer) { C.cGoWakuDnsDiscovery(h, cEnrTree, cDNSServer, C.int(timeoutMs), resp) })
+	return await(func(ud C.uintptr_t) C.int {
+		return C.cGoWakuDnsDiscovery(h, cEnrTree, cDNSServer, C.int32_t(timeoutMs), ud)
+	})
 }
 
 // IsOnline reports the node's online state ("true"/"false").
 func IsOnline(h Handle) (string, error) {
-	return call(func(resp unsafe.Pointer) { C.cGoWakuIsOnline(h, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuIsOnline(h, ud) })
 }
 
 // GetMetrics returns the node's metrics in Prometheus text format.
 func GetMetrics(h Handle) (string, error) {
-	return call(func(resp unsafe.Pointer) { C.cGoWakuGetMetrics(h, resp) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetMetrics(h, ud) })
 }
