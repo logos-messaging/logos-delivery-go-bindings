@@ -32,6 +32,7 @@ pkg/kernel/store.sqlite3-wal
 pkg/kernel/test_repeated_start_stop.log
 
 third_party/
+_third_party/
 
 # JetBrains IDEs
 .idea/
