@@ -19,7 +19,7 @@ import (
 func TestRelaySendReceive(t *testing.T) {
 	const clusterID, shardID = 16, 64
 
-	newNode := func(name string) *WakuNode {
+	newNode := func(name string) *Node {
 		node, err := StartWakuNode(name, &common.WakuConfig{
 			Relay:           true,
 			LogLevel:        "ERROR",
@@ -28,7 +28,7 @@ func TestRelaySendReceive(t *testing.T) {
 			Shards:          []uint16{shardID},
 		})
 		require.NoError(t, err)
-		t.Cleanup(func() { _ = node.StopAndDestroy() })
+		t.Cleanup(func() { _ = node.Close() })
 		return node
 	}
 
@@ -36,8 +36,8 @@ func TestRelaySendReceive(t *testing.T) {
 	receiver := newNode("receiver")
 
 	topic := FormatWakuRelayTopic(clusterID, shardID)
-	require.NoError(t, sender.RelaySubscribe(topic))
-	require.NoError(t, receiver.RelaySubscribe(topic))
+	require.NoError(t, sender.Relay().Subscribe(topic))
+	require.NoError(t, receiver.Relay().Subscribe(topic))
 
 	// Dial the receiver from the sender using the receiver's listen multiaddr
 	// (it already embeds the peer id).
@@ -47,9 +47,9 @@ func TestRelaySendReceive(t *testing.T) {
 
 	connCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	require.NoError(t, sender.Connect(connCtx, addrs[0]))
+	require.NoError(t, sender.Peers().Connect(connCtx, addrs[0]))
 	require.Eventually(t, func() bool {
-		n, _ := sender.GetNumConnectedPeers()
+		n, _ := sender.Peers().NumConnected()
 		return n >= 1
 	}, 15*time.Second, time.Second, "sender never connected to the receiver")
 
@@ -61,12 +61,12 @@ func TestRelaySendReceive(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		// May fail with NoPeersToPublish until gossipsub grafts the mesh; retried.
-		_, _ = sender.RelayPublish(ctx, &pb.WakuMessage{
+		_, _ = sender.Relay().Publish(ctx, topic, &pb.WakuMessage{
 			Payload:      payload,
 			ContentTopic: "/kernel-test/1/relay/proto",
 			Version:      proto.Uint32(0),
 			Timestamp:    proto.Int64(time.Now().UnixNano()),
-		}, topic)
+		})
 	}
 
 	// Publish immediately, then retry each second while waiting for delivery —
@@ -77,7 +77,7 @@ func TestRelaySendReceive(t *testing.T) {
 	deadline := time.After(10 * time.Second)
 	for {
 		select {
-		case env := <-receiver.MsgChan:
+		case env := <-receiver.Messages():
 			if string(env.Message().GetPayload()) == string(payload) {
 				return // received our exact message — success
 			}

@@ -1,12 +1,11 @@
 package messaging
 
-// ContentTopic is an application-level message category, e.g.
-// "/my-app/1/chat/proto". It mirrors the Nim ContentTopic, which is a string.
-type ContentTopic = string
+import "github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel"
 
-// RequestID correlates a Send call with the MessageSentEvent /
-// MessagePropagatedEvent / MessageErrorEvent it later produces. It mirrors the
-// Nim RequestId.
-type RequestID string
-
-func (id RequestID) String() string { return string(id) }
+type (
+	// ContentTopic names the application-level channel a message belongs to,
+	// by convention "/<app>/<version>/<name>/<encoding>".
+	ContentTopic = kernel.ContentTopic
+	// RequestID correlates a send with the delivery events it produces.
+	RequestID = kernel.RequestID
+)

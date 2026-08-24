@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"context"
 	"slices"
 	"testing"
 	"time"
@@ -15,29 +16,29 @@ func TestDisconnectPeerNodes(t *testing.T) {
 
 	nodeA, err := StartWakuNode("nodeA", nil)
 	require.NoError(t, err, "Failed to start Node A")
-	defer nodeA.StopAndDestroy()
+	defer func() { _ = nodeA.Close() }()
 
 	nodeB, err := StartWakuNode("nodeB", nil)
 	require.NoError(t, err, "Failed to start Node B")
-	defer nodeB.StopAndDestroy()
+	defer func() { _ = nodeB.Close() }()
 
 	Debug("Connecting Node A to Node B")
-	err = nodeA.ConnectPeer(nodeB)
+	err = nodeA.Peers().ConnectTo(context.Background(), nodeB)
 	require.NoError(t, err, "Failed to connect nodes")
 
 	Debug("Verifying connection between Node A and Node B")
-	connectedPeers, err := nodeA.GetConnectedPeers()
+	connectedPeers, err := nodeA.Peers().Connected()
 	require.NoError(t, err, "Failed to get connected peers for Node A")
 	nodeBPeerID, err := nodeB.PeerID()
 	require.NoError(t, err, "Failed to get PeerID for Node B")
 	require.True(t, slices.Contains(connectedPeers, nodeBPeerID), "Node B should be a peer of Node A before disconnection")
 
 	Debug("Disconnecting Node A from Node B")
-	err = nodeA.DisconnectPeer(nodeB)
+	err = nodeA.Peers().DisconnectFrom(nodeB)
 	require.NoError(t, err, "Failed to disconnect nodes")
 
 	Debug("Verifying disconnection between Node A and Node B")
-	connectedPeers, err = nodeA.GetConnectedPeers()
+	connectedPeers, err = nodeA.Peers().Connected()
 	require.NoError(t, err, "Failed to get connected peers for Node A after disconnection")
 	require.False(t, slices.Contains(connectedPeers, nodeBPeerID), "Node B should no longer be a peer of Node A after disconnection")
 	Debug("Test completed successfully: Node B was disconnected from Node A")
@@ -52,33 +53,33 @@ func TestConnectMultipleNodesToSingleNode(t *testing.T) {
 	require.NoError(t, err, "Failed to start Node 1")
 	defer func() {
 		Debug("Stopping and destroying Node 1")
-		node1.StopAndDestroy()
+		_ = node1.Close()
 	}()
 
 	node2, err := StartWakuNode("node2", nil)
 	require.NoError(t, err, "Failed to start Node 2")
 	defer func() {
 		Debug("Stopping and destroying Node 2")
-		node2.StopAndDestroy()
+		_ = node2.Close()
 	}()
 
 	node3, err := StartWakuNode("node3", nil)
 	require.NoError(t, err, "Failed to start Node 3")
 	defer func() {
 		Debug("Stopping and destroying Node 3")
-		node3.StopAndDestroy()
+		_ = node3.Close()
 	}()
 
 	Debug("Connecting Node 2 to Node 1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node 2 to Node 1")
 
 	Debug("Connecting Node 3 to Node 1")
-	err = node3.ConnectPeer(node1)
+	err = node3.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node 3 to Node 1")
 
 	Debug("Verifying connected peers for Node 1")
-	connectedPeers, err := node1.GetConnectedPeers()
+	connectedPeers, err := node1.Peers().Connected()
 	require.NoError(t, err, "Failed to get connected peers for Node 1")
 	node3PeerID, err := node3.PeerID()
 	require.NoError(t, err, "Failed to get PeerID for Node 1")
@@ -121,14 +122,14 @@ func TestConnectUsingMultipleStaticPeers(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
-		node3.StopAndDestroy()
-		node4.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
+		_ = node3.Close()
+		_ = node4.Close()
 	}()
 
 	Debug("Verifying connected peers for Node 4")
-	connectedPeers, err := node4.GetConnectedPeers()
+	connectedPeers, err := node4.Peers().Connected()
 	require.NoError(t, err, "Failed to get connected peers for Node 4")
 
 	node1PeerID, err := node1.PeerID()
@@ -175,14 +176,14 @@ func TestConnectedPeersInfo(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
-		node3.StopAndDestroy()
-		node4.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
+		_ = node3.Close()
+		_ = node4.Close()
 	}()
 
 	Debug("Verifying connected peers for Node 4")
-	connectedPeers, err := node4.GetConnectedPeers()
+	connectedPeers, err := node4.Peers().Connected()
 	require.NoError(t, err, "Failed to get connected peers for Node 4")
 
 	node1PeerID, err := node1.PeerID()
@@ -198,7 +199,7 @@ func TestConnectedPeersInfo(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	peersInfo, err := node4.GetConnectedPeersInfo()
+	peersInfo, err := node4.Peers().ConnectedInfo()
 	require.NoError(t, err, "Failed to get node 4's connected peers info")
 
 	require.Equal(t, 3, len(peersInfo), "Expected Node 4's connected peers info to have 3 entries")
@@ -248,36 +249,36 @@ func TestDiscv5PeerMeshCount(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	defaultPubsubTopic := DefaultPubsubTopic
 	Debug("Default pubsub topic retrieved: %s", defaultPubsubTopic)
 
-	err = SubscribeNodesToTopic([]*WakuNode{node1, node2, node3}, defaultPubsubTopic)
+	err = SubscribeNodesToTopic([]*Node{node1, node2, node3}, defaultPubsubTopic)
 	require.NoError(t, err, "Failed to subscribe all nodes to the topic")
 
 	Debug("Waiting for nodes to auto-connect via Discv5")
-	err = WaitForAutoConnection([]*WakuNode{node1, node2, node3})
+	err = WaitForAutoConnection([]*Node{node1, node2, node3})
 	require.NoError(t, err, "Nodes did not auto-connect within timeout")
 	time.Sleep(time.Second * 5)
 
 	Debug("Fetching number of peers in mesh for Node1 before stopping Node3")
-	peerCountBefore, err := node1.GetNumPeersInMesh(defaultPubsubTopic)
+	peerCountBefore, err := node1.Relay().NumPeersInMesh(defaultPubsubTopic)
 	require.NoError(t, err, "Failed to get number of peers in mesh for Node1 before stopping Node3")
 
 	Debug("Total number of peers in mesh for Node1 before stopping Node3: %d", peerCountBefore)
 	require.Equal(t, 2, peerCountBefore, "Expected Node1 to have exactly 2 peers in the mesh before stopping Node3")
 
 	Debug("Stopping Node3")
-	node3.StopAndDestroy()
+	_ = node3.Close()
 
 	Debug("Waiting for network update after Node3 stops")
 	time.Sleep(10 * time.Second)
 
 	Debug("Fetching number of peers in mesh for Node1 after stopping Node3")
-	peerCountAfter, err := node1.GetNumPeersInMesh(defaultPubsubTopic)
+	peerCountAfter, err := node1.Relay().NumPeersInMesh(defaultPubsubTopic)
 	require.NoError(t, err, "Failed to get number of peers in mesh for Node1 after stopping Node3")
 
 	Debug("Total number of peers in mesh for Node1 after stopping Node3: %d", peerCountAfter)
@@ -321,22 +322,22 @@ func TestDiscv5PeerMeshIds(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	defaultPubsubTopic := DefaultPubsubTopic
 	Debug("Default pubsub topic retrieved: %s", defaultPubsubTopic)
 
-	err = SubscribeNodesToTopic([]*WakuNode{node1, node2, node3}, defaultPubsubTopic)
+	err = SubscribeNodesToTopic([]*Node{node1, node2, node3}, defaultPubsubTopic)
 	require.NoError(t, err, "Failed to subscribe all nodes to the topic")
 
 	Debug("Waiting for nodes to auto-connect via Discv5")
-	err = WaitForAutoConnection([]*WakuNode{node1, node2, node3})
+	err = WaitForAutoConnection([]*Node{node1, node2, node3})
 	require.NoError(t, err, "Nodes did not auto-connect within timeout")
 
 	Debug("Fetching number of peers in mesh for Node1 before stopping Node3")
-	peersBefore, err := node1.GetPeersInMesh(defaultPubsubTopic)
+	peersBefore, err := node1.Relay().PeersInMesh(defaultPubsubTopic)
 	require.NoError(t, err, "Failed to get number of peers in mesh for Node1 before stopping Node3")
 
 	Debug("Total number of peers in mesh for Node1 before stopping Node3: %d", len(peersBefore))
@@ -345,13 +346,13 @@ func TestDiscv5PeerMeshIds(t *testing.T) {
 	require.True(t, slices.Contains(peersBefore, node3PeerID), "Node 3 should be included in node 1's mesh")
 
 	Debug("Stopping Node3")
-	node3.StopAndDestroy()
+	_ = node3.Close()
 
 	Debug("Waiting for network update after Node3 stops")
 	time.Sleep(10 * time.Second)
 
 	Debug("Fetching number of peers in mesh for Node1 after stopping Node3")
-	peersAfter, err := node1.GetPeersInMesh(defaultPubsubTopic)
+	peersAfter, err := node1.Relay().PeersInMesh(defaultPubsubTopic)
 	require.NoError(t, err, "Failed to get number of peers in mesh for Node1 after stopping Node3")
 
 	Debug("Total number of peers in mesh for Node1 after stopping Node3: %d", len(peersAfter))
@@ -382,20 +383,20 @@ func TestDiscv5DisabledNoPeersConnected(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	Debug("Waiting to ensure no auto-connection")
 	time.Sleep(15 * time.Second)
 
 	Debug("Verifying number of peers connected to Nodes")
-	peerCount, err := node1.GetNumConnectedPeers()
+	peerCount, err := node1.Peers().NumConnected()
 	require.NoError(t, err, "Failed to get number of peers in mesh for Node1")
 	Debug("Total number of connected peers for Node1: %d", peerCount)
 	require.Equal(t, 0, peerCount, "Expected Node1 to have exactly 0 peers in the mesh")
 
-	peerCount, err = node2.GetNumConnectedPeers()
+	peerCount, err = node2.Peers().NumConnected()
 	require.NoError(t, err, "Failed to get number of peers in mesh for Node2")
 	Debug("Total number of connected peers for Node2: %d", peerCount)
 	require.Equal(t, 0, peerCount, "Expected Node2 to have exactly 0 peers in the mesh")
@@ -450,18 +451,18 @@ func TestDiscv5GetPeersConnected(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
-		node3.StopAndDestroy()
-		node4.StopAndDestroy()
+		node1.Close()
+		node2.Close()
+		node3.Close()
+		node4.Close()
 	}()
 
 	Debug("Waiting for nodes to auto-connect via Discv5")
-	err = WaitForAutoConnection([]*WakuNode{node1, node2, node3, node4})
+	err = WaitForAutoConnection([]*Node{node1, node2, node3, node4})
 	require.NoError(t, err, "Nodes did not auto-connect within timeout")
 
 	Debug("Fetching number of peers in connected to  Node1")
-	peerCount, err := node1.GetNumConnectedPeers()
+	peerCount, err := node1.Peers().NumConnected()
 	require.NoError(t, err, "Failed to get number of peers in mesh for Node1")
 
 	Debug("Total number of peers connected to Node1: %d", peerCount)

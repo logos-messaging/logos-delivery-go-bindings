@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -40,21 +41,21 @@ func TestStoreQuery3Nodes(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
-		node3.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
+		_ = node3.Close()
 	}()
 
 	Debug("Connecting Node1 to Node2")
-	err = node1.ConnectPeer(node2)
+	err = node1.Peers().ConnectTo(context.Background(), node2)
 	require.NoError(t, err, "Failed to connect Node1 to Node2")
 
 	Debug("Connecting Node3 to Node2")
-	err = node3.ConnectPeer(node2)
+	err = node3.Peers().ConnectTo(context.Background(), node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
 	Debug("Waiting for peer connections to stabilize")
-	err = WaitForAutoConnection([]*WakuNode{node1, node2, node3})
+	err = WaitForAutoConnection([]*Node{node1, node2, node3})
 	require.NoError(t, err, "Nodes did not connect within timeout")
 	Debug("Publishing message from Node1 using RelayPublish")
 	message := node1.CreateMessage(&pb.WakuMessage{
@@ -63,7 +64,7 @@ func TestStoreQuery3Nodes(t *testing.T) {
 		Timestamp:    proto.Int64(time.Now().UnixNano()),
 	})
 
-	msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
+	msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, message)
 	require.NoError(t, err, "Failed to publish message from Node1")
 
 	Debug("Waiting for message delivery to Node2")
@@ -114,17 +115,17 @@ func TestStoreQueryMultipleMessages(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
-		node3.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
+		_ = node3.Close()
 	}()
 	var timestamp = proto.Int64(time.Now().UnixNano())
 	Debug("Connecting Node1 to Node2")
-	err = node1.ConnectPeer(node2)
+	err = node1.Peers().ConnectTo(context.Background(), node2)
 	require.NoError(t, err, "Failed to connect Node1 to Node2")
 
 	Debug("Connecting Node3 to Node2")
-	err = node3.ConnectPeer(node2)
+	err = node3.Peers().ConnectTo(context.Background(), node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
 	Debug("Waiting for peer connections to stabilize")
@@ -142,7 +143,7 @@ func TestStoreQueryMultipleMessages(t *testing.T) {
 			Timestamp:    proto.Int64(time.Now().UnixNano()),
 		})
 
-		msgHash, err := node1.RelayPublishNoCTX(defaultPubsubTopic, message)
+		msgHash, err := node1.Relay().Publish(context.Background(), defaultPubsubTopic, message)
 		require.NoError(t, err, "Failed to publish message from Node1")
 
 		sentHashes = append(sentHashes, msgHash)
@@ -205,17 +206,17 @@ func TestStoreQueryWith5Pagination(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
-		node3.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
+		_ = node3.Close()
 	}()
 
 	Debug("Connecting Node1 to Node2")
-	err = node1.ConnectPeer(node2)
+	err = node1.Peers().ConnectTo(context.Background(), node2)
 	require.NoError(t, err, "Failed to connect Node1 to Node2")
 
 	Debug("Connecting Node3 to Node2")
-	err = node3.ConnectPeer(node2)
+	err = node3.Peers().ConnectTo(context.Background(), node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
 	Debug("Waiting for peer connections to stabilize")
@@ -232,7 +233,7 @@ func TestStoreQueryWith5Pagination(t *testing.T) {
 			Timestamp:    proto.Int64(time.Now().UnixNano()),
 		})
 
-		_, err := node1.RelayPublishNoCTX(defaultPubsubTopic, message)
+		_, err := node1.Relay().Publish(context.Background(), defaultPubsubTopic, message)
 		require.NoError(t, err, "Failed to publish message from Node1")
 
 	}
@@ -286,17 +287,17 @@ func TestStoreQueryWithPaginationMultiplePages(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
-		node3.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
+		_ = node3.Close()
 	}()
 	var timestamp = proto.Int64(time.Now().UnixNano())
 	Debug("Connecting Node1 to Node2")
-	err = node1.ConnectPeer(node2)
+	err = node1.Peers().ConnectTo(context.Background(), node2)
 	require.NoError(t, err, "Failed to connect Node1 to Node2")
 
 	Debug("Connecting Node3 to Node2")
-	err = node3.ConnectPeer(node2)
+	err = node3.Peers().ConnectTo(context.Background(), node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
 	Debug("Waiting for peer connections to stabilize")
@@ -314,7 +315,7 @@ func TestStoreQueryWithPaginationMultiplePages(t *testing.T) {
 			Timestamp:    proto.Int64(time.Now().UnixNano()),
 		})
 
-		msgHash, err := node1.RelayPublishNoCTX(defaultPubsubTopic, message)
+		msgHash, err := node1.Relay().Publish(context.Background(), defaultPubsubTopic, message)
 		require.NoError(t, err, "Failed to publish message from Node1")
 
 		sentHashes = append(sentHashes, msgHash)
@@ -393,17 +394,17 @@ func TestStoreQueryWithPaginationReverseOrder(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
-		node3.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
+		_ = node3.Close()
 	}()
 
 	Debug("Connecting Node1 to Node2")
-	err = node1.ConnectPeer(node2)
+	err = node1.Peers().ConnectTo(context.Background(), node2)
 	require.NoError(t, err, "Failed to connect Node1 to Node2")
 
 	Debug("Connecting Node3 to Node2")
-	err = node3.ConnectPeer(node2)
+	err = node3.Peers().ConnectTo(context.Background(), node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
 	Debug("Waiting for peer connections to stabilize")
@@ -422,7 +423,7 @@ func TestStoreQueryWithPaginationReverseOrder(t *testing.T) {
 			Timestamp:    proto.Int64(time.Now().UnixNano()),
 		})
 
-		msgHash, err := node1.RelayPublishNoCTX(defaultPubsubTopic, message)
+		msgHash, err := node1.Relay().Publish(context.Background(), defaultPubsubTopic, message)
 		require.NoError(t, err, "Failed to publish message from Node1")
 
 		sentHashes = append(sentHashes, msgHash)
@@ -507,22 +508,22 @@ func TestQueryFailWhenNoStorePeer(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
-		node3.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
+		_ = node3.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
 	Debug("Connecting Node3 to Node2")
-	err = node3.ConnectPeer(node2)
+	err = node3.Peers().ConnectTo(context.Background(), node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
 	Debug("Sender Node1 is publishing a message")
 	message := node1.CreateMessage()
-	msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
+	msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, message)
 	require.NoError(t, err)
 	require.NotEmpty(t, msgHash)
 
@@ -573,15 +574,15 @@ func TestQueryFailWithIncorrectStaticNode(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
-		node3.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
+		_ = node3.Close()
 	}()
 
 	Debug("Sender Node1 is publishing a message")
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
 	message := node1.CreateMessage()
-	msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
+	msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, message)
 	require.NoError(t, err)
 	require.NotEmpty(t, msgHash)
 
@@ -623,22 +624,22 @@ func TestStoreQueryWithoutData(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
-		node3.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
+		_ = node3.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
 	Debug("Connecting Node3 to Node2")
-	err = node3.ConnectPeer(node2)
+	err = node3.Peers().ConnectTo(context.Background(), node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
 	Debug("Sender Node1 is publishing a message")
 	message := node1.CreateMessage()
-	msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
+	msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, message)
 	require.NoError(t, err)
 	require.NotEmpty(t, msgHash)
 
@@ -686,17 +687,17 @@ func TestStoreQueryWithWrongContentTopic(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying all Waku nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
-		node3.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
+		_ = node3.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
 	Debug("Connecting Node3 to Node2")
-	err = node3.ConnectPeer(node2)
+	err = node3.Peers().ConnectTo(context.Background(), node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
 	Debug("Recording timestamp before message publication")
@@ -704,7 +705,7 @@ func TestStoreQueryWithWrongContentTopic(t *testing.T) {
 
 	Debug("Sender Node1 is publishing a message with a correct content topic")
 	message := node1.CreateMessage()
-	msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
+	msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, message)
 	require.NoError(t, err)
 	require.NotEmpty(t, msgHash)
 
@@ -739,12 +740,12 @@ func TestCheckStoredMSGsEphemeralTrue(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying both nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
 	Debug("Recording timestamp before message publication")
@@ -755,7 +756,7 @@ func TestCheckStoredMSGsEphemeralTrue(t *testing.T) {
 	ephemeralTrue := true
 	message.Ephemeral = &ephemeralTrue
 
-	msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
+	msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, message)
 	require.NoError(t, err)
 	require.NotEmpty(t, msgHash)
 
@@ -791,12 +792,12 @@ func TestCheckStoredMSGsEphemeralFalse(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying both nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
 	Debug("Recording timestamp before message publication")
@@ -807,7 +808,7 @@ func TestCheckStoredMSGsEphemeralFalse(t *testing.T) {
 	ephemeralFalse := false
 	message.Ephemeral = &ephemeralFalse
 
-	msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
+	msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, message)
 	require.NoError(t, err)
 	require.NotEmpty(t, msgHash)
 
@@ -844,18 +845,18 @@ func TestCheckLegacyStore(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying both nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
 
 	Debug("Sender Node1 is publishing a message")
 	message := node1.CreateMessage()
-	msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
+	msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, message)
 	require.NoError(t, err)
 	require.NotEmpty(t, msgHash)
 
@@ -892,12 +893,12 @@ func TestStoredMessagesWithVDifferentPayloads(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying both nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
 	for _, pLoad := range SAMPLE_INPUTS {
@@ -907,7 +908,7 @@ func TestStoredMessagesWithVDifferentPayloads(t *testing.T) {
 		message := node1.CreateMessage()
 		message.Payload = []byte(pLoad.Value)
 
-		msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
+		msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, message)
 		require.NoError(t, err, "Failed to publish message")
 		require.NotEmpty(t, msgHash, "Message hash is empty")
 
@@ -947,12 +948,12 @@ func TestStoredMessagesWithDifferentContentTopics(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying both nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
 	for _, contentTopic := range CONTENT_TOPICS_DIFFERENT_SHARDS {
@@ -962,7 +963,7 @@ func TestStoredMessagesWithDifferentContentTopics(t *testing.T) {
 		message := node1.CreateMessage()
 		message.ContentTopic = contentTopic
 
-		msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
+		msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, message)
 		require.NoError(t, err, "Failed to publish message")
 		require.NotEmpty(t, msgHash, "Message hash is empty")
 
@@ -1003,23 +1004,23 @@ func TestStoredMessagesWithDifferentPubsubTopics(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying both nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
 	for _, pubsubTopic := range PUBSUB_TOPICS_STORE {
 
 		Debug("Node1 is publishing message on pubsub topic: %s", pubsubTopic)
-		node1.RelaySubscribe(pubsubTopic)
-		node2.RelaySubscribe(pubsubTopic)
+		_ = node1.Relay().Subscribe(pubsubTopic)
+		_ = node2.Relay().Subscribe(pubsubTopic)
 		time.Sleep(time.Second * 2)
 		queryTimestamp := proto.Int64(time.Now().UnixNano())
 		var msg = node1.CreateMessage()
-		msgHash, err := node1.RelayPublishNoCTX(pubsubTopic, msg)
+		msgHash, err := node1.Relay().Publish(context.Background(), pubsubTopic, msg)
 		require.NoError(t, err, "Failed to publish message")
 		require.NotEmpty(t, msgHash, "Message hash is empty")
 
@@ -1059,12 +1060,12 @@ func TestStoredMessagesWithMetaField(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying both nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
 
@@ -1073,7 +1074,7 @@ func TestStoredMessagesWithMetaField(t *testing.T) {
 	message.Payload = []byte("payload")
 	message.Meta = []byte([]byte("hello"))
 
-	msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
+	msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, message)
 	require.NoError(t, err, "Failed to publish message")
 	require.NotEmpty(t, msgHash, "Message hash is empty")
 
@@ -1114,12 +1115,12 @@ func TestStoredMessagesWithVersionField(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying both nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
 	version := uint32(2)
@@ -1130,7 +1131,7 @@ func TestStoredMessagesWithVersionField(t *testing.T) {
 	message := node1.CreateMessage()
 	message.Version = &version
 
-	msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
+	msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, message)
 	require.NoError(t, err, "Failed to publish message")
 	require.NotEmpty(t, msgHash, "Message hash is empty")
 
@@ -1170,12 +1171,12 @@ func TestStoredDuplicateMessage(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying both nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
 	Debug("Waiting for peer connections to stabilize")
@@ -1184,7 +1185,7 @@ func TestStoredDuplicateMessage(t *testing.T) {
 	}
 
 	require.NoError(t, RetryWithBackOff(func() error {
-		numPeersNode1, err := node1.GetNumConnectedRelayPeers(DefaultPubsubTopic)
+		numPeersNode1, err := node1.Relay().NumConnectedPeers(DefaultPubsubTopic)
 		if err != nil {
 			return err
 		}
@@ -1192,7 +1193,7 @@ func TestStoredDuplicateMessage(t *testing.T) {
 			return fmt.Errorf("node1 has 0 relay peers, expected at least 1")
 		}
 
-		numPeersNode2, err := node2.GetNumConnectedRelayPeers(DefaultPubsubTopic)
+		numPeersNode2, err := node2.Relay().NumConnectedPeers(DefaultPubsubTopic)
 		if err != nil {
 			return err
 		}
@@ -1206,10 +1207,10 @@ func TestStoredDuplicateMessage(t *testing.T) {
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
 	var msg = node1.CreateMessage()
 	Debug("Node1 is publishing two identical messages")
-	_, err = node1.RelayPublishNoCTX(DefaultPubsubTopic, msg)
+	_, err = node1.Relay().Publish(context.Background(), DefaultPubsubTopic, msg)
 	require.NoError(t, err, "Failed to publish first message")
 
-	_, err = node2.RelayPublishNoCTX(DefaultPubsubTopic, msg)
+	_, err = node2.Relay().Publish(context.Background(), DefaultPubsubTopic, msg)
 	require.NoError(t, err, "Failed to publish second message")
 
 	Debug("Querying stored messages from Node2 using Node1")
@@ -1246,12 +1247,12 @@ func TestQueryStoredMessagesWithoutPublishing(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying both nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
@@ -1289,12 +1290,12 @@ func TestQueryStoredMessagesWithWrongHash(t *testing.T) {
 
 	defer func() {
 		Debug("Stopping and destroying both nodes")
-		node1.StopAndDestroy()
-		node2.StopAndDestroy()
+		_ = node1.Close()
+		_ = node2.Close()
 	}()
 
 	Debug("Connecting Node2 to Node1")
-	err = node2.ConnectPeer(node1)
+	err = node2.Peers().ConnectTo(context.Background(), node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
@@ -1303,7 +1304,7 @@ func TestQueryStoredMessagesWithWrongHash(t *testing.T) {
 	message := node1.CreateMessage()
 	message.Payload = []byte("Test message for hash modification")
 
-	msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
+	msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, message)
 	require.NoError(t, err, "Failed to publish message")
 	require.NotEmpty(t, msgHash, "Message hash is empty")
 

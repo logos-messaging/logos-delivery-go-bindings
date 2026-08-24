@@ -41,15 +41,15 @@ func TestPeerAddrRejectsAddresslessPeer(t *testing.T) {
 
 // Zero milliseconds is not "no timeout": chronos expires immediately on it, so
 // a context without a deadline has to fall back to the request timeout.
-func TestContextTimeoutFallsBackToRequestTimeout(t *testing.T) {
-	if got, want := getContextTimeoutMilliseconds(context.Background()),
+func TestTimeoutMillisFallsBackToRequestTimeout(t *testing.T) {
+	if got, want := timeoutMillis(context.Background(), requestTimeout),
 		int(requestTimeout.Milliseconds()); got != want {
-		t.Errorf("getContextTimeoutMilliseconds(Background) = %d, want %d", got, want)
+		t.Errorf("timeoutMillis(Background) = %d, want %d", got, want)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	if got := getContextTimeoutMilliseconds(ctx); got <= 0 || got > 60_000 {
-		t.Errorf("getContextTimeoutMilliseconds(1m) = %d, want (0, 60000]", got)
+	if got := timeoutMillis(ctx, requestTimeout); got <= 0 || got > 60_000 {
+		t.Errorf("timeoutMillis(1m) = %d, want (0, 60000]", got)
 	}
 }

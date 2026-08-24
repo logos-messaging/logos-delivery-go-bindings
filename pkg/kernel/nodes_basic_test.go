@@ -20,7 +20,7 @@ func TestBasicWakuNodes(t *testing.T) {
 
 	// Use defer to ensure proper cleanup
 	defer func() {
-		node.StopAndDestroy()
+		_ = node.Close()
 	}()
 
 	Debug("Successfully created the WakuNode")
@@ -38,7 +38,7 @@ func TestNodeRestart(t *testing.T) {
 	nodeConfig := DefaultWakuConfig
 	node, err := StartWakuNode("TestNode", &nodeConfig)
 	require.NoError(t, err, "Failed to start Waku node")
-	defer node.StopAndDestroy()
+	defer func() { _ = node.Close() }()
 
 	Debug("Node started successfully")
 
@@ -85,9 +85,9 @@ func TestDoubleStart(t *testing.T) {
 		TcpPort:         tcpPort,
 	}
 
-	node, err := NewWakuNode(&config, "node")
+	node, err := NewFromWakuConfig(&config, "node")
 	require.NoError(t, err)
-	defer node.StopAndDestroy()
+	defer func() { _ = node.Close() }()
 
 	// start node
 	require.NoError(t, node.Start())
@@ -112,9 +112,9 @@ func TestDoubleStop(t *testing.T) {
 		TcpPort:         tcpPort,
 	}
 
-	node, err := NewWakuNode(&config, "node")
+	node, err := NewFromWakuConfig(&config, "node")
 	require.NoError(t, err)
-	defer node.StopAndDestroy()
+	defer func() { _ = node.Close() }()
 
 	// start node
 	require.NoError(t, node.Start())

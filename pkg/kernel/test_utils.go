@@ -88,15 +88,15 @@ func RetryWithBackOff(o func() error, options ...BackOffOption) error {
 	return backoff.Retry(o, &b)
 }
 
-func (n *WakuNode) CreateMessage(customMessage ...*pb.WakuMessage) *pb.WakuMessage {
-	Debug("Creating a WakuMessage on node %s", n.nodeName)
+func (n *Node) CreateMessage(customMessage ...*pb.WakuMessage) *pb.WakuMessage {
+	Debug("Creating a WakuMessage on node %s", n.name)
 
 	if len(customMessage) > 0 && customMessage[0] != nil {
-		Debug("Using provided custom message on node %s", n.nodeName)
+		Debug("Using provided custom message on node %s", n.name)
 		return customMessage[0]
 	}
 
-	Debug("Using default message format on node %s", n.nodeName)
+	Debug("Using default message format on node %s", n.name)
 	defaultMessage := &pb.WakuMessage{
 		Payload:      []byte("This is a default Waku message payload"),
 		ContentTopic: DefaultContentTopic,
@@ -104,11 +104,11 @@ func (n *WakuNode) CreateMessage(customMessage ...*pb.WakuMessage) *pb.WakuMessa
 		Timestamp:    proto.Int64(time.Now().UnixNano()),
 	}
 
-	Debug("Successfully created a default WakuMessage on node %s", n.nodeName)
+	Debug("Successfully created a default WakuMessage on node %s", n.name)
 	return defaultMessage
 }
 
-func WaitForAutoConnection(nodeList []*WakuNode) error {
+func WaitForAutoConnection(nodeList []*Node) error {
 	Debug("Waiting for auto-connection of nodes...")
 
 	options := func(b *backoff.ExponentialBackOff) {
@@ -117,7 +117,7 @@ func WaitForAutoConnection(nodeList []*WakuNode) error {
 
 	err := RetryWithBackOff(func() error {
 		for _, node := range nodeList {
-			peers, err := node.GetConnectedPeers()
+			peers, err := node.Peers().Connected()
 			if err != nil {
 				return err
 			}
@@ -126,7 +126,7 @@ func WaitForAutoConnection(nodeList []*WakuNode) error {
 				return errors.New("expected at least one connected peer") // Retry
 			}
 
-			Debug("Node %s has %d connected peers", node.nodeName, len(peers))
+			Debug("Node %s has %d connected peers", node.name, len(peers))
 		}
 
 		return nil
@@ -141,7 +141,7 @@ func WaitForAutoConnection(nodeList []*WakuNode) error {
 	return nil
 }
 
-func (n *WakuNode) VerifyMessageReceived(expectedMessage *pb.WakuMessage, expectedHash common.MessageHash, timeout ...time.Duration) error {
+func (n *Node) VerifyMessageReceived(expectedMessage *pb.WakuMessage, expectedHash common.MessageHash, timeout ...time.Duration) error {
 
 	var verifyTimeout time.Duration
 	if len(timeout) > 0 {
@@ -150,34 +150,34 @@ func (n *WakuNode) VerifyMessageReceived(expectedMessage *pb.WakuMessage, expect
 		verifyTimeout = DefaultTimeOut
 	}
 
-	Debug("Verifying if the message was received on node %s, timeout: %v", n.nodeName, verifyTimeout)
+	Debug("Verifying if the message was received on node %s, timeout: %v", n.name, verifyTimeout)
 
 	ctx, cancel := context.WithTimeout(context.Background(), verifyTimeout)
 	defer cancel()
 
 	select {
-	case envelope := <-n.MsgChan:
+	case envelope := <-n.Messages():
 		if string(expectedMessage.Payload) != string(envelope.Message().Payload) {
-			Error("Payload does not match on node %s", n.nodeName)
+			Error("Payload does not match on node %s", n.name)
 			return errors.New("payload does not match")
 		}
 		if expectedMessage.ContentTopic != envelope.Message().ContentTopic {
-			Error("Content topic does not match on node %s", n.nodeName)
+			Error("Content topic does not match on node %s", n.name)
 			return errors.New("content topic does not match")
 		}
 		if expectedHash != envelope.Hash() {
-			Error("Message hash does not match on node %s", n.nodeName)
+			Error("Message hash does not match on node %s", n.name)
 			return errors.New("message hash does not match")
 		}
-		Debug("Message received and verified successfully on node %s, Message: %s", n.nodeName, string(envelope.Message().Payload))
+		Debug("Message received and verified successfully on node %s, Message: %s", n.name, string(envelope.Message().Payload))
 		return nil
 	case <-ctx.Done():
-		Error("Timeout: message not received within %v on node %s", verifyTimeout, n.nodeName)
+		Error("Timeout: message not received within %v on node %s", verifyTimeout, n.name)
 		return errors.New("timeout: message not received within the given duration")
 	}
 }
 
-func ConnectAllPeers(nodes []*WakuNode) error {
+func ConnectAllPeers(nodes []*Node) error {
 	if len(nodes) == 0 {
 		Error("Cannot connect peers: node list is empty")
 		return errors.New("node list is empty")
@@ -191,7 +191,7 @@ func ConnectAllPeers(nodes []*WakuNode) error {
 
 	for i := 0; i < len(nodes)-1; i++ {
 		Debug("Connecting node %d to node %d", i, i+1)
-		err := nodes[i].ConnectPeer(nodes[i+1])
+		err := nodes[i].Peers().ConnectTo(context.Background(), nodes[i+1])
 		if err != nil {
 			Error("Failed to connect node %d to node %d: %v", i, i+1, err)
 			return err
@@ -203,21 +203,21 @@ func ConnectAllPeers(nodes []*WakuNode) error {
 	return nil
 }
 
-func SubscribeNodesToTopic(nodes []*WakuNode, topic string) error {
+func SubscribeNodesToTopic(nodes []*Node, topic string) error {
 	for _, node := range nodes {
-		Debug("Subscribing node %s to topic %s", node.nodeName, topic)
-		err := node.RelaySubscribe(topic)
+		Debug("Subscribing node %s to topic %s", node.name, topic)
+		err := node.Relay().Subscribe(topic)
 
 		if err != nil {
-			Error("Failed to subscribe node %s to topic %s: %v", node.nodeName, topic, err)
+			Error("Failed to subscribe node %s to topic %s: %v", node.name, topic, err)
 			return err
 		}
-		Debug("Node %s successfully subscribed to topic %s", node.nodeName, topic)
+		Debug("Node %s successfully subscribed to topic %s", node.name, topic)
 	}
 	return nil
 }
 
-func (n *WakuNode) GetStoredMessages(storeNode *WakuNode, storeRequest *common.StoreQueryRequest) (*common.StoreQueryResponse, error) {
+func (n *Node) GetStoredMessages(storeNode *Node, storeRequest *common.StoreQueryRequest) (*common.StoreQueryResponse, error) {
 	Debug("Starting store query request")
 
 	if storeRequest == nil {
@@ -246,7 +246,7 @@ func (n *WakuNode) GetStoredMessages(storeNode *WakuNode, storeRequest *common.S
 	defer cancel()
 
 	Debug("Querying store node for messages")
-	res, err := n.StoreQuery(ctx, storeRequest, *storeNodeAddrInfo)
+	res, err := n.Store().Query(ctx, storeRequest, *storeNodeAddrInfo)
 	if err != nil {
 		Error("StoreQuery failed: %v", err)
 		return nil, err
