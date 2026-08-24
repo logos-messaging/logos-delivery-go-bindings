@@ -1,9 +1,9 @@
 name: PR
 
 on:
+  # Every PR, whatever it targets: a stacked PR based on another branch needs
+  # the same gate as one based on master.
   pull_request:
-    branches:
-      - master
 
 # Cancel superseded runs on the same PR.
 concurrency:
