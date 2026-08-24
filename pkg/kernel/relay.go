@@ -23,7 +23,7 @@ type Relay struct{ n *Node }
 
 // Subscribe joins the relay mesh for a pubsub topic. Messages received on it
 // arrive on Node.Messages.
-func (r Relay) Subscribe(pubsubTopic string) error {
+func (r *Relay) Subscribe(pubsubTopic string) error {
 	if err := r.n.check(); err != nil {
 		return err
 	}
@@ -32,16 +32,14 @@ func (r Relay) Subscribe(pubsubTopic string) error {
 	}
 
 	if err := ffi.RelaySubscribe(r.n.h, pubsubTopic); err != nil {
-		Error("Failed to subscribe %s to %s: %v", r.n.name, pubsubTopic, err)
 		return fmt.Errorf("kernel: relay subscribe %q: %w", pubsubTopic, err)
 	}
 
-	Debug("Successfully subscribed %s to %s", r.n.name, pubsubTopic)
 	return nil
 }
 
 // Unsubscribe leaves the relay mesh for a pubsub topic.
-func (r Relay) Unsubscribe(pubsubTopic string) error {
+func (r *Relay) Unsubscribe(pubsubTopic string) error {
 	if err := r.n.check(); err != nil {
 		return err
 	}
@@ -50,17 +48,15 @@ func (r Relay) Unsubscribe(pubsubTopic string) error {
 	}
 
 	if err := ffi.RelayUnsubscribe(r.n.h, pubsubTopic); err != nil {
-		Error("Failed to unsubscribe %s from %s: %v", r.n.name, pubsubTopic, err)
 		return fmt.Errorf("kernel: relay unsubscribe %q: %w", pubsubTopic, err)
 	}
 
-	Debug("Successfully unsubscribed %s from %s", r.n.name, pubsubTopic)
 	return nil
 }
 
 // Publish publishes a message on a pubsub topic and returns its hash. A ctx
 // without a deadline gets the package default of 30s.
-func (r Relay) Publish(
+func (r *Relay) Publish(
 	ctx context.Context, pubsubTopic string, message *pb.WakuMessage,
 ) (common.MessageHash, error) {
 	if err := r.n.check(); err != nil {
@@ -96,7 +92,6 @@ func (r Relay) Publish(
 
 	hash, err := ffi.RelayPublish(r.n.h, pubsubTopic, string(jsonMsg), timeoutMillis(ctx, requestTimeout))
 	if err != nil {
-		Error("Failed to publish from %s on %s: %v", r.n.name, pubsubTopic, err)
 		return "", fmt.Errorf("kernel: relay publish: %w", err)
 	}
 
@@ -105,13 +100,12 @@ func (r Relay) Publish(
 		return "", err
 	}
 
-	Debug("Successfully published from %s, messageHash: %s", r.n.name, parsed.String())
 	return parsed, nil
 }
 
 // AddProtectedShard registers the public key allowed to sign messages on a
 // protected shard.
-func (r Relay) AddProtectedShard(clusterID, shardID uint16, pubkey *ecdsa.PublicKey) error {
+func (r *Relay) AddProtectedShard(clusterID, shardID uint16, pubkey *ecdsa.PublicKey) error {
 	if err := r.n.check(); err != nil {
 		return err
 	}
@@ -127,7 +121,7 @@ func (r Relay) AddProtectedShard(clusterID, shardID uint16, pubkey *ecdsa.Public
 }
 
 // PeersInMesh returns the relay mesh peers for a pubsub topic.
-func (r Relay) PeersInMesh(pubsubTopic string) (peer.IDSlice, error) {
+func (r *Relay) PeersInMesh(pubsubTopic string) (peer.IDSlice, error) {
 	if err := r.n.check(); err != nil {
 		return nil, err
 	}
@@ -140,7 +134,7 @@ func (r Relay) PeersInMesh(pubsubTopic string) (peer.IDSlice, error) {
 }
 
 // NumPeersInMesh returns the relay mesh peer count for a pubsub topic.
-func (r Relay) NumPeersInMesh(pubsubTopic string) (int, error) {
+func (r *Relay) NumPeersInMesh(pubsubTopic string) (int, error) {
 	if err := r.n.check(); err != nil {
 		return 0, err
 	}
@@ -154,7 +148,7 @@ func (r Relay) NumPeersInMesh(pubsubTopic string) (int, error) {
 
 // ConnectedPeers returns the connected relay peers, optionally narrowed to one
 // pubsub topic.
-func (r Relay) ConnectedPeers(optPubsubTopic ...string) (peer.IDSlice, error) {
+func (r *Relay) ConnectedPeers(optPubsubTopic ...string) (peer.IDSlice, error) {
 	if err := r.n.check(); err != nil {
 		return nil, err
 	}
@@ -168,7 +162,7 @@ func (r Relay) ConnectedPeers(optPubsubTopic ...string) (peer.IDSlice, error) {
 
 // NumConnectedPeers returns the connected relay peer count, optionally narrowed
 // to one pubsub topic.
-func (r Relay) NumConnectedPeers(optPubsubTopic ...string) (int, error) {
+func (r *Relay) NumConnectedPeers(optPubsubTopic ...string) (int, error) {
 	if err := r.n.check(); err != nil {
 		return 0, err
 	}

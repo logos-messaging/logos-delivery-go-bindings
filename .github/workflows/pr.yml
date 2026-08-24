@@ -85,21 +85,18 @@ jobs:
           # config still fails the lint run itself, so skip the pre-check.
           verify: false
 
-      - name: go test unit (run)
-        # Fast, network-free unit tests: the Messaging API, its ffi bridge, and
-        # the wire decoders in pkg/kernel/common.
-        run: go test ./pkg/messaging/... ./pkg/kernel/common/... ./internal/ffi/...
+      - name: go test (run)
+        # Everything that needs neither a live node nor outbound connectivity.
+        # The heavy kernel suite marks itself with requiresNode and skips under
+        # -short; it runs nightly in CI.yml.
+        run: go test -short ./...
 
-      - name: go test messaging integration (compile)
+      - name: go test integration (compile)
         # The integration suite needs outbound connectivity, so it is behind a
         # build tag. Compile it here so it cannot rot unnoticed.
-        run: go test -tags integration -run '^$' ./pkg/messaging/...
-
-      - name: go test kernel unit (run)
-        # Named explicitly: the rest of the kernel suite needs a live node.
-        run: go test -run 'TestConfig|TestPeerAddr|TestTimeout' ./pkg/kernel/
+        run: go test -tags integration -run '^$' ./...
 
       - name: go test kernel (compile)
-        # The kernel suite is heavy integration (runs nightly in CI.yml), so
-        # only compile its test binaries here.
+        # Compile the node-requiring tests that -short skipped, so they cannot
+        # rot either.
         run: go test -run '^$' ./pkg/kernel/...

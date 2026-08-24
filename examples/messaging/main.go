@@ -60,7 +60,7 @@ func main() {
 
 	// The Kernel API runs against the very same node.
 	node := client.Node()
-	if peerID, err := node.PeerID(); err == nil {
+	if peerID, err := node.Debug().PeerID(); err == nil {
 		log.Printf("peer id %s", peerID)
 	}
 	if peers, err := node.Peers().NumConnected(); err == nil {

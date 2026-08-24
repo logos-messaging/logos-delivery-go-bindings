@@ -8,10 +8,10 @@ Go bindings for Logos Delivery.
   A `MessagingClient` mirrors the Nim `MessagingClient`: it drives a node and
   exposes `Start`/`Stop`/`Close`, `Subscribe`/`Unsubscribe`, `Send`, and a
   typed `Events()` stream. See `examples/messaging` for a runnable demo.
-- **`pkg/kernel`** — the node itself. A `kernel.Node` owns the library context
-  both API tiers share, and the kernel (`waku_*`) protocols hang off it as
-  facades: `Relay()`, `Store()`, `Peers()`, `Discovery()`. Unsupported and
-  subject to change without notice.
+- **`pkg/kernel`** — the node itself. A `kernel.Node` owns the library context,
+  and the kernel (`waku_*`) protocols hang off it as facades: `Relay()`,
+  `Store()`, `Peers()`, `DiscV5()`, `PeerExchange()`, `DNSDiscovery()` and
+  `Debug()`. Unsupported and subject to change without notice.
 
 Both tiers drive one node. A client hands its node over with `Node()`, so the
 kernel protocols are reachable without a second node and without a raw handle:
@@ -25,6 +25,7 @@ client.Send(ctx, contentTopic, payload, false)
 node := client.Node()
 resp, err := node.Store().Query(ctx, request, peerInfo)
 peers, err := node.Peers().Connected()
+id, err := node.Debug().PeerID()
 ```
 
 ## Install

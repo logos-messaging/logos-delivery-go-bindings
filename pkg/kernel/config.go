@@ -24,6 +24,11 @@ const (
 // "cluster-id"); the library rejects keys it does not recognise.
 type Overrides map[string]any
 
+// TODO: mode and preset are MessagingClient concerns, not kernel ones. They
+// live here because one library call configures every layer at once; once
+// logos-delivery splits those responsibilities and each layer can be
+// configured on its own, the kernel's configuration will look different.
+//
 // Config is a node's configuration. It marshals to the layered configuration
 // JSON that logosdelivery_create_node consumes: a network preset plus,
 // optionally, overrides for the messaging and reliable-channel layers.
@@ -43,7 +48,4 @@ type Config struct {
 	MessagingOverrides Overrides `json:"messagingOverrides,omitempty"`
 	// ChannelsOverrides overrides reliable-channel configuration fields.
 	ChannelsOverrides Overrides `json:"channelsOverrides,omitempty"`
-	// Name labels the node in this library's log messages. It is not part of
-	// the configuration sent to the library.
-	Name string `json:"-"`
 }

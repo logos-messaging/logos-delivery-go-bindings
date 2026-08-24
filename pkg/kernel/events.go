@@ -40,7 +40,7 @@ func (n *Node) onEvent(eventJSON string) {
 		EventType string `json:"eventType"`
 	}
 	if err := json.Unmarshal([]byte(eventJSON), &head); err != nil {
-		Error("could not unmarshal event for %s: %v", n.name, err)
+		logError("could not unmarshal event: %v", err)
 		return
 	}
 
@@ -48,7 +48,7 @@ func (n *Node) onEvent(eventJSON string) {
 	case "message":
 		var envelope common.Envelope
 		if err := json.Unmarshal([]byte(eventJSON), &envelope); err != nil {
-			Error("could not parse message for %s: %v", n.name, err)
+			logError("could not parse message: %v", err)
 			return
 		}
 		n.deliverMessage(envelope)
@@ -56,7 +56,7 @@ func (n *Node) onEvent(eventJSON string) {
 	case "relay_topic_health_change":
 		var health TopicHealth
 		if err := json.Unmarshal([]byte(eventJSON), &health); err != nil {
-			Error("could not parse topic health change for %s: %v", n.name, err)
+			logError("could not parse topic health change: %v", err)
 			return
 		}
 		n.deliverTopicHealth(health)
@@ -64,7 +64,7 @@ func (n *Node) onEvent(eventJSON string) {
 	case "connection_change":
 		var change ConnectionChange
 		if err := json.Unmarshal([]byte(eventJSON), &change); err != nil {
-			Error("could not parse connection change for %s: %v", n.name, err)
+			logError("could not parse connection change: %v", err)
 			return
 		}
 		n.deliverConnectionChange(change)
@@ -83,7 +83,7 @@ func (n *Node) deliverMessage(envelope common.Envelope) {
 	select {
 	case n.msgChan <- envelope:
 	default:
-		Warn("Can't deliver message for %s, Messages channel is full", n.name)
+		logWarn("can't deliver message, Messages channel is full")
 	}
 }
 
@@ -96,7 +96,7 @@ func (n *Node) deliverTopicHealth(health TopicHealth) {
 	select {
 	case n.topicHealthChan <- health:
 	default:
-		Warn("Can't deliver topic health event for %s, channel is full", n.name)
+		logWarn("can't deliver topic health event, channel is full")
 	}
 }
 
@@ -109,6 +109,6 @@ func (n *Node) deliverConnectionChange(change ConnectionChange) {
 	select {
 	case n.connectionChan <- change:
 	default:
-		Warn("Can't deliver connection change for %s, channel is full", n.name)
+		logWarn("can't deliver connection change, channel is full")
 	}
 }

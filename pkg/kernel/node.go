@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 
@@ -18,6 +17,11 @@ import (
 // ErrClosed is returned by operations on a Node that has been closed.
 var ErrClosed = errors.New("kernel: node is closed")
 
+// EventChanBufferSize bounds each of a node's event streams. Events are
+// dropped rather than blocked when a consumer falls behind, so the library's
+// event thread is never stalled by a slow reader.
+const EventChanBufferSize = 1024
+
 // ListenerID identifies one event listener registered on a Node.
 type ListenerID uint64
 
@@ -26,18 +30,17 @@ type ListenerID uint64
 // block: hand work off to a buffered channel or a goroutine.
 type EventHandler func(eventJSON string)
 
-// Node is a logos-delivery node: the single owner of the library context that
-// both API tiers share. The Kernel API is reached through the protocol facades
-// (Relay, Store, Peers, Discovery); the Messaging API is reached through
-// pkg/messaging, which builds a MessagingClient over a Node.
+// Node is a logos-delivery node: the owner of the library context, and the
+// only place the underlying FFI handle lives. The protocols are reached
+// through the facades taken from it — Relay, Store, Peers, DiscV5,
+// PeerExchange, DNSDiscovery and Debug.
 //
 // The lifecycle is New -> Start -> ... -> Stop -> Close. Close is idempotent
 // and releases the context, so it is safe to defer it right after New.
 //
 // A Node is safe for concurrent use.
 type Node struct {
-	h    ffi.Handle
-	name string
+	h ffi.Handle
 
 	// config is the flat legacy configuration, when the node was built from
 	// one. Nodes built from a Config leave it nil.
@@ -56,14 +59,13 @@ type Node struct {
 	closeHooks []func()
 }
 
-// Channel capacities for the kernel event streams. Events are dropped rather
-// than blocked when a consumer falls behind, so the library's event thread is
-// never stalled by a slow reader.
-const (
-	MsgChanBufferSize              = 1024
-	TopicHealthChanBufferSize      = 1024
-	ConnectionChangeChanBufferSize = 1024
-)
+// Handle returns the library context a node owns.
+//
+// It is plumbing for the API tiers this module builds on a node, not part of
+// the binding's surface: ffi.Handle is a defined type in an internal package,
+// so code outside this module can neither name it nor do anything with the
+// value. Use the facades instead.
+func Handle(n *Node) ffi.Handle { return n.h }
 
 // kernelEvents are the library's wire names for the events a Node consumes.
 // The library registers one listener per name; the eventType inside each
@@ -83,13 +85,13 @@ func New(cfg Config) (*Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("kernel: marshal config: %w", err)
 	}
-	return newNode(string(cfgJSON), cfg.Name)
+	return newNode(string(cfgJSON))
 }
 
 // NewFromWakuConfig builds a node from the legacy flat configuration blob. New
 // is the preferred door: it takes the layered configuration the library
 // expects, and a preset covers most of what this struct spells out by hand.
-func NewFromWakuConfig(cfg *common.WakuConfig, name string) (*Node, error) {
+func NewFromWakuConfig(cfg *common.WakuConfig) (*Node, error) {
 	if cfg == nil {
 		return nil, errors.New("kernel: config is nil")
 	}
@@ -99,7 +101,7 @@ func NewFromWakuConfig(cfg *common.WakuConfig, name string) (*Node, error) {
 		return nil, fmt.Errorf("kernel: marshal config: %w", err)
 	}
 
-	n, err := newNode(string(cfgJSON), name)
+	n, err := newNode(string(cfgJSON))
 	if err != nil {
 		return nil, err
 	}
@@ -108,21 +110,17 @@ func NewFromWakuConfig(cfg *common.WakuConfig, name string) (*Node, error) {
 }
 
 // newNode creates the library context and wires up the kernel event streams.
-func newNode(configJSON, name string) (*Node, error) {
-	Debug("Creating node %s", name)
-
+func newNode(configJSON string) (*Node, error) {
 	h, err := ffi.New(configJSON)
 	if err != nil {
-		Error("error creating node %s: %v", name, err)
 		return nil, fmt.Errorf("kernel: create node: %w", err)
 	}
 
 	n := &Node{
 		h:               h,
-		name:            name,
-		msgChan:         make(chan common.Envelope, MsgChanBufferSize),
-		topicHealthChan: make(chan TopicHealth, TopicHealthChanBufferSize),
-		connectionChan:  make(chan ConnectionChange, ConnectionChangeChanBufferSize),
+		msgChan:         make(chan common.Envelope, EventChanBufferSize),
+		topicHealthChan: make(chan TopicHealth, EventChanBufferSize),
+		connectionChan:  make(chan ConnectionChange, EventChanBufferSize),
 	}
 
 	// Register before Start so no event emitted during startup is missed.
@@ -132,13 +130,8 @@ func newNode(configJSON, name string) (*Node, error) {
 			return nil, err
 		}
 	}
-
-	Debug("Successfully created node %s", name)
 	return n, nil
 }
-
-// Name is the label this node carries in log messages.
-func (n *Node) Name() string { return n.name }
 
 // Config returns the legacy flat configuration the node was built from, or nil
 // when it was built from a Config.
@@ -150,17 +143,13 @@ func (n *Node) Start() error {
 		return err
 	}
 
-	Debug("Starting %s", n.name)
 	if err := ffi.Start(n.h); err != nil {
-		Error("Failed to start %s: %v", n.name, err)
 		return fmt.Errorf("kernel: start: %w", err)
 	}
 
 	n.mu.Lock()
 	n.started = true
 	n.mu.Unlock()
-
-	Debug("Successfully started %s", n.name)
 	return nil
 }
 
@@ -170,17 +159,13 @@ func (n *Node) Stop() error {
 		return err
 	}
 
-	Debug("Stopping %s", n.name)
 	if err := ffi.Stop(n.h); err != nil {
-		Error("Failed to stop %s: %v", n.name, err)
 		return fmt.Errorf("kernel: stop: %w", err)
 	}
 
 	n.mu.Lock()
 	n.started = false
 	n.mu.Unlock()
-
-	Debug("Successfully stopped %s", n.name)
 	return nil
 }
 
@@ -202,8 +187,6 @@ func (n *Node) Close() error {
 	n.listeners, n.closeHooks = nil, nil
 	n.mu.Unlock()
 
-	Debug("Closing %s", n.name)
-
 	var errs []error
 	if started {
 		// Destroy regardless: a leaked context is worse than an unclean stop.
@@ -215,7 +198,7 @@ func (n *Node) Close() error {
 	// Drop the listeners before the hooks tear down what they write to.
 	for _, id := range listeners {
 		if err := ffi.RemoveEventListener(n.h, ffi.ListenerID(id)); err != nil {
-			Warn("failed to remove event listener for %v: %v", n.name, err)
+			errs = append(errs, fmt.Errorf("remove listener %d: %w", id, err))
 		}
 	}
 	for _, hook := range hooks {
@@ -227,12 +210,8 @@ func (n *Node) Close() error {
 	}
 
 	if len(errs) > 0 {
-		err := fmt.Errorf("kernel: close %s: %w", n.name, errors.Join(errs...))
-		Error("%v", err)
-		return err
+		return fmt.Errorf("kernel: close: %w", errors.Join(errs...))
 	}
-
-	Debug("Successfully closed %s", n.name)
 	return nil
 }
 
@@ -263,13 +242,11 @@ func (n *Node) AddEventListener(eventName string, fn EventHandler) (ListenerID, 
 
 	id, err := ffi.AddEventListener(n.h, eventName, func(ret int, msg string) {
 		if ret != ffi.RetOK {
-			Error("event listener %q on %s reported code %d: %v", eventName, n.name, ret, msg)
 			return
 		}
 		fn(msg)
 	})
 	if err != nil {
-		Error("error adding %s listener for %s: %v", eventName, n.name, err)
 		return 0, fmt.Errorf("kernel: %w", err)
 	}
 
@@ -302,108 +279,25 @@ func (n *Node) RemoveEventListener(id ListenerID) error {
 }
 
 // Relay is the relay protocol surface.
-func (n *Node) Relay() Relay { return Relay{n} }
+func (n *Node) Relay() *Relay { return &Relay{n} }
 
 // Store is the store protocol surface.
-func (n *Node) Store() Store { return Store{n} }
+func (n *Node) Store() *Store { return &Store{n} }
 
 // Peers is the peer management surface.
-func (n *Node) Peers() Peers { return Peers{n} }
+func (n *Node) Peers() *Peers { return &Peers{n} }
 
-// Discovery is the peer discovery surface: DiscV5, DNS discovery and peer
-// exchange.
-func (n *Node) Discovery() Discovery { return Discovery{n} }
+// DiscV5 is the DiscV5 peer discovery surface.
+func (n *Node) DiscV5() *DiscV5 { return &DiscV5{n} }
 
-// PeerID returns the node's own peer id.
-func (n *Node) PeerID() (peer.ID, error) {
-	if err := n.check(); err != nil {
-		return "", err
-	}
+// PeerExchange is the peer exchange protocol surface.
+func (n *Node) PeerExchange() *PeerExchange { return &PeerExchange{n} }
 
-	idStr, err := ffi.GetMyPeerID(n.h)
-	if err != nil {
-		return "", fmt.Errorf("kernel: peer id: %w", err)
-	}
+// DNSDiscovery is the DNS-based peer discovery surface.
+func (n *Node) DNSDiscovery() *DNSDiscovery { return &DNSDiscovery{n} }
 
-	id, err := peer.Decode(idStr)
-	if err != nil {
-		return "", fmt.Errorf("kernel: decode peer id: %w", err)
-	}
-	return id, nil
-}
-
-// ListenAddresses returns the multiaddresses the node listens on.
-func (n *Node) ListenAddresses() ([]multiaddr.Multiaddr, error) {
-	if err := n.check(); err != nil {
-		return nil, err
-	}
-
-	addrs, err := ffi.ListenAddresses(n.h)
-	if err != nil {
-		return nil, fmt.Errorf("kernel: listen addresses: %w", err)
-	}
-	return parseMultiaddrs(addrs)
-}
-
-// ENR returns the node's own ENR record.
-func (n *Node) ENR() (*enode.Node, error) {
-	if err := n.check(); err != nil {
-		return nil, err
-	}
-
-	enrStr, err := ffi.GetMyENR(n.h)
-	if err != nil {
-		return nil, fmt.Errorf("kernel: enr: %w", err)
-	}
-
-	record, err := enode.Parse(enode.ValidSchemes, enrStr)
-	if err != nil {
-		return nil, fmt.Errorf("kernel: parse enr: %w", err)
-	}
-	return record, nil
-}
-
-// Version returns the library version the node runs.
-func (n *Node) Version() (string, error) {
-	if err := n.check(); err != nil {
-		return "", err
-	}
-
-	version, err := ffi.Version(n.h)
-	if err != nil {
-		return "", fmt.Errorf("kernel: version: %w", err)
-	}
-	return version, nil
-}
-
-// IsOnline reports whether the node considers itself connected to the network.
-func (n *Node) IsOnline() (bool, error) {
-	if err := n.check(); err != nil {
-		return false, err
-	}
-
-	online, err := ffi.IsOnline(n.h)
-	if err != nil {
-		return false, fmt.Errorf("kernel: is online: %w", err)
-	}
-	return online == "true", nil
-}
-
-// Metrics returns the node's metrics in Prometheus text format.
-func (n *Node) Metrics() (string, error) {
-	if err := n.check(); err != nil {
-		return "", err
-	}
-
-	metrics, err := ffi.GetMetrics(n.h)
-	if err != nil {
-		return "", fmt.Errorf("kernel: metrics: %w", err)
-	}
-	if metrics == "" {
-		return "", errors.New("kernel: metrics: empty response")
-	}
-	return metrics, nil
-}
+// Debug is the node's own identity and health surface.
+func (n *Node) Debug() *Debug { return &Debug{n} }
 
 // check reports whether the node is still usable.
 func (n *Node) check() error {

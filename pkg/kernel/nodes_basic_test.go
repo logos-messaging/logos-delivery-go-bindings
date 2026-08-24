@@ -9,13 +9,14 @@ import (
 )
 
 func TestBasicWakuNodes(t *testing.T) {
-	Debug("Starting TestBasicWakuNodes")
+	requiresNode(t)
+	logDebug("Starting TestBasicWakuNodes")
 
 	nodeCfg := DefaultWakuConfig
 	nodeCfg.Relay = true
 
-	Debug("Starting the WakuNode")
-	node, err := StartWakuNode("node", &nodeCfg)
+	logDebug("Starting the WakuNode")
+	node, err := StartWakuNode(&nodeCfg)
 	require.NoError(t, err, "Failed to create the WakuNode")
 
 	// Use defer to ensure proper cleanup
@@ -23,56 +24,55 @@ func TestBasicWakuNodes(t *testing.T) {
 		_ = node.Close()
 	}()
 
-	Debug("Successfully created the WakuNode")
+	logDebug("Successfully created the WakuNode")
 	time.Sleep(2 * time.Second)
 
-	Debug("TestBasicWakuNodes completed successfully")
+	logDebug("TestBasicWakuNodes completed successfully")
 }
 
 /* artifact https://github.com/logos-messaging/logos-delivery-go-bindings/issues/40 */
 func TestNodeRestart(t *testing.T) {
+	requiresNode(t)
 	t.Skip("Skipping test for open artifact ")
-	Debug("Starting TestNodeRestart")
+	logDebug("Starting TestNodeRestart")
 
-	Debug("Creating Node")
+	logDebug("Creating Node")
 	nodeConfig := DefaultWakuConfig
-	node, err := StartWakuNode("TestNode", &nodeConfig)
+	node, err := StartWakuNode(&nodeConfig)
 	require.NoError(t, err, "Failed to start Waku node")
 	defer func() { _ = node.Close() }()
 
-	Debug("Node started successfully")
+	logDebug("Node started successfully")
 
-	Debug("Fetching ENR before stopping the node")
-	enrBefore, err := node.ENR()
+	logDebug("Fetching ENR before stopping the node")
+	enrBefore, err := node.Debug().ENR()
 	require.NoError(t, err, "Failed to get ENR before stopping")
 	require.NotEmpty(t, enrBefore, "ENR should not be empty before stopping")
-	Debug("ENR before stopping: %s", enrBefore)
+	logDebug("ENR before stopping: %s", enrBefore)
 
-	Debug("Stopping the Node")
+	logDebug("Stopping the Node")
 	err = node.Stop()
 	require.NoError(t, err, "Failed to stop Waku node")
-	Debug("Node stopped successfully")
+	logDebug("Node stopped successfully")
 
-	Debug("Restarting the Node")
+	logDebug("Restarting the Node")
 	err = node.Start()
 	require.NoError(t, err, "Failed to restart Waku node")
-	Debug("Node restarted successfully")
+	logDebug("Node restarted successfully")
 
-	Debug("Fetching ENR after restarting the node")
-	enrAfter, err := node.ENR()
+	logDebug("Fetching ENR after restarting the node")
+	enrAfter, err := node.Debug().ENR()
 	require.NoError(t, err, "Failed to get ENR after restarting")
 	require.NotEmpty(t, enrAfter, "ENR should not be empty after restart")
-	Debug("ENR after restarting: %s", enrAfter)
+	logDebug("ENR after restarting: %s", enrAfter)
 
-	Debug("Comparing ENRs before and after restart")
+	logDebug("Comparing ENRs before and after restart")
 	require.Equal(t, enrBefore, enrAfter, "ENR should remain the same after node restart")
 
-	Debug("TestNodeRestart completed successfully")
+	logDebug("TestNodeRestart completed successfully")
 }
 func TestDoubleStart(t *testing.T) {
-
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
+	requiresNode(t)
 
 	config := common.WakuConfig{
 		Relay:           true,
@@ -81,11 +81,11 @@ func TestDoubleStart(t *testing.T) {
 		Discv5Discovery: true,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
+		Discv5UdpPort:   0,
+		TcpPort:         0,
 	}
 
-	node, err := NewFromWakuConfig(&config, "node")
+	node, err := NewFromWakuConfig(&config)
 	require.NoError(t, err)
 	defer func() { _ = node.Close() }()
 
@@ -97,9 +97,7 @@ func TestDoubleStart(t *testing.T) {
 }
 
 func TestDoubleStop(t *testing.T) {
-
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
+	requiresNode(t)
 
 	config := common.WakuConfig{
 		Relay:           true,
@@ -108,11 +106,11 @@ func TestDoubleStop(t *testing.T) {
 		Discv5Discovery: true,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
+		Discv5UdpPort:   0,
+		TcpPort:         0,
 	}
 
-	node, err := NewFromWakuConfig(&config, "node")
+	node, err := NewFromWakuConfig(&config)
 	require.NoError(t, err)
 	defer func() { _ = node.Close() }()
 

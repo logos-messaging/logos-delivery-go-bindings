@@ -17,10 +17,11 @@ import (
 // other must receive it. It exercises the unified node lifecycle and the Kernel
 // relay ops (waku_relay_subscribe/publish) over the one library.
 func TestRelaySendReceive(t *testing.T) {
+	requiresNode(t)
 	const clusterID, shardID = 16, 64
 
-	newNode := func(name string) *Node {
-		node, err := StartWakuNode(name, &common.WakuConfig{
+	newNode := func() *Node {
+		node, err := StartWakuNode(&common.WakuConfig{
 			Relay:           true,
 			LogLevel:        "ERROR",
 			Discv5Discovery: false,
@@ -32,8 +33,8 @@ func TestRelaySendReceive(t *testing.T) {
 		return node
 	}
 
-	sender := newNode("sender")
-	receiver := newNode("receiver")
+	sender := newNode()
+	receiver := newNode()
 
 	topic := FormatWakuRelayTopic(clusterID, shardID)
 	require.NoError(t, sender.Relay().Subscribe(topic))
@@ -41,7 +42,7 @@ func TestRelaySendReceive(t *testing.T) {
 
 	// Dial the receiver from the sender using the receiver's listen multiaddr
 	// (it already embeds the peer id).
-	addrs, err := receiver.ListenAddresses()
+	addrs, err := receiver.Debug().ListenAddresses()
 	require.NoError(t, err)
 	require.NotEmpty(t, addrs)
 

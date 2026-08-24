@@ -3,8 +3,8 @@ package messaging
 import "github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel"
 
 // The node configuration lives with the node itself, in pkg/kernel: a client
-// and the Kernel API configure one and the same node. These aliases keep it
-// spellable from here.
+// and the kernel protocols configure one and the same node. These aliases keep
+// it spellable from here.
 type (
 	// Mode selects how much of the stack a node runs.
 	Mode = kernel.Mode

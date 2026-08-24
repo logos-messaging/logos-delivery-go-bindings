@@ -1,4 +1,4 @@
-package kernel
+package messaging
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/logos-messaging/logos-delivery-go-bindings/internal/ffi"
+	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel"
 )
 
 // ContentTopic names the application-level channel a message belongs to, by
@@ -18,37 +19,19 @@ type RequestID string
 
 func (id RequestID) String() string { return string(id) }
 
-// Messaging is a Node's Messaging API surface: the stable send and subscribe
-// tier that sits above relay. Take one with Node.Messaging.
-//
-// It carries the operations only. For the delivery events they produce, use
-// pkg/messaging, whose MessagingClient pairs this surface with a typed event
-// stream.
-type Messaging struct{ n *Node }
-
-// Messaging is the Messaging API surface.
-func (n *Node) Messaging() Messaging { return Messaging{n} }
-
-// Subscribe starts receiving messages published on a content topic.
-func (m Messaging) Subscribe(contentTopic ContentTopic) error {
-	if err := m.n.check(); err != nil {
-		return err
-	}
-
-	if err := ffi.Subscribe(m.n.h, contentTopic); err != nil {
-		return fmt.Errorf("kernel: subscribe %q: %w", contentTopic, err)
+// Subscribe starts receiving messages published on a content topic. They
+// arrive as MessageReceivedEvent on Events().
+func (c *MessagingClient) Subscribe(contentTopic ContentTopic) error {
+	if err := ffi.Subscribe(kernel.Handle(c.node), contentTopic); err != nil {
+		return fmt.Errorf("messaging: subscribe %q: %w", contentTopic, err)
 	}
 	return nil
 }
 
 // Unsubscribe stops receiving messages published on a content topic.
-func (m Messaging) Unsubscribe(contentTopic ContentTopic) error {
-	if err := m.n.check(); err != nil {
-		return err
-	}
-
-	if err := ffi.Unsubscribe(m.n.h, contentTopic); err != nil {
-		return fmt.Errorf("kernel: unsubscribe %q: %w", contentTopic, err)
+func (c *MessagingClient) Unsubscribe(contentTopic ContentTopic) error {
+	if err := ffi.Unsubscribe(kernel.Handle(c.node), contentTopic); err != nil {
+		return fmt.Errorf("messaging: unsubscribe %q: %w", contentTopic, err)
 	}
 	return nil
 }
@@ -62,18 +45,16 @@ type wireEnvelope struct {
 }
 
 // Send publishes payload on contentTopic and returns the RequestID that
-// correlates it with the delivery events it produces. An ephemeral message is
-// transient, so stores do not retain it.
+// correlates it with the MessageSentEvent, MessagePropagatedEvent or
+// MessageErrorEvent it produces. An ephemeral message is transient, so stores
+// do not retain it.
 //
-// Returning marks the message accepted by the send service, not delivered.
-// If ctx is cancelled while the library is still working, Send returns
-// ctx.Err() and the message may still go out.
-func (m Messaging) Send(
+// Returning marks the message accepted by the send service, not delivered:
+// delivery is reported on Events(). If ctx is cancelled while the library is
+// still working, Send returns ctx.Err() and the message may still go out.
+func (c *MessagingClient) Send(
 	ctx context.Context, contentTopic ContentTopic, payload []byte, ephemeral bool,
 ) (RequestID, error) {
-	if err := m.n.check(); err != nil {
-		return "", err
-	}
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
@@ -84,7 +65,7 @@ func (m Messaging) Send(
 		Ephemeral:    ephemeral,
 	})
 	if err != nil {
-		return "", fmt.Errorf("kernel: marshal message: %w", err)
+		return "", fmt.Errorf("messaging: marshal message: %w", err)
 	}
 
 	type result struct {
@@ -94,7 +75,7 @@ func (m Messaging) Send(
 	// Buffered: the call outlives a cancelled ctx, and must not block on exit.
 	done := make(chan result, 1)
 	go func() {
-		id, err := ffi.Send(m.n.h, string(msg))
+		id, err := ffi.Send(kernel.Handle(c.node), string(msg))
 		done <- result{id, err}
 	}()
 
@@ -103,7 +84,7 @@ func (m Messaging) Send(
 		return "", ctx.Err()
 	case r := <-done:
 		if r.err != nil {
-			return "", fmt.Errorf("kernel: send: %w", r.err)
+			return "", fmt.Errorf("messaging: send: %w", r.err)
 		}
 		return RequestID(r.id), nil
 	}

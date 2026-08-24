@@ -6,11 +6,6 @@ import (
 	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel"
 )
 
-// eventBufferSize bounds the buffered Events channel. Events are dropped rather
-// than blocked when a consumer falls behind, so the library's event thread is
-// never stalled by a slow reader.
-const eventBufferSize = 1024
-
 // ErrClosed is returned by operations on a client whose node has been closed.
 var ErrClosed = kernel.ErrClosed
 
@@ -18,10 +13,8 @@ var ErrClosed = kernel.ErrClosed
 // MessagingClient: it drives a node and exposes the messaging surface over it —
 // subscribe, unsubscribe, send, and a stream of delivery events.
 //
-// It embeds the node's kernel.Messaging surface, so Subscribe, Unsubscribe and
-// Send are the node's own operations rather than a second copy of them. The
-// rest of the node is reached through Node: a client and the Kernel API drive
-// one and the same node.
+// The node it drives is reached through Node, so the kernel protocols run
+// against the same node the client sends on:
 //
 //	client.Send(ctx, topic, payload, false)
 //	client.Node().Store().Query(ctx, request, peerInfo)
@@ -31,8 +24,6 @@ var ErrClosed = kernel.ErrClosed
 //
 // A MessagingClient is safe for concurrent use.
 type MessagingClient struct {
-	kernel.Messaging
-
 	node   *kernel.Node
 	events chan Event
 
@@ -57,9 +48,8 @@ func New(cfg Config) (*MessagingClient, error) {
 // closing either one closes both.
 func Attach(node *kernel.Node) (*MessagingClient, error) {
 	c := &MessagingClient{
-		Messaging: node.Messaging(),
-		node:      node,
-		events:    make(chan Event, eventBufferSize),
+		node:   node,
+		events: make(chan Event, kernel.EventChanBufferSize),
 	}
 
 	// Runs after the node drops its listeners, so nothing sends afterwards.
@@ -80,8 +70,9 @@ func Attach(node *kernel.Node) (*MessagingClient, error) {
 	return c, nil
 }
 
-// Node returns the node this client drives, so the Kernel API can be used
-// against it. Its lifetime is the client's: Close either one and both are done.
+// Node returns the node this client drives, so the kernel protocols can be
+// used against it. Its lifetime is the client's: Close either one and both are
+// done.
 func (c *MessagingClient) Node() *kernel.Node { return c.node }
 
 // Events returns the stream of Messaging API events. Type-switch over the

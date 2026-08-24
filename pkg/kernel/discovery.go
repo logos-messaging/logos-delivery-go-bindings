@@ -10,43 +10,58 @@ import (
 	"github.com/logos-messaging/logos-delivery-go-bindings/internal/ffi"
 )
 
-// Discovery is a Node's peer discovery surface: DiscV5, DNS discovery and peer
-// exchange. Take one with Node.Discovery.
-type Discovery struct{ n *Node }
+// DiscV5 is a Node's DiscV5 peer discovery surface. Take one with Node.DiscV5.
+type DiscV5 struct{ n *Node }
 
-// StartDiscV5 starts DiscV5 peer discovery.
-func (d Discovery) StartDiscV5() error {
+// Start starts DiscV5 peer discovery.
+func (d *DiscV5) Start() error {
 	if err := d.n.check(); err != nil {
 		return err
 	}
 
 	if err := ffi.StartDiscV5(d.n.h); err != nil {
-		Error("Failed to start DiscV5 for %s: %v", d.n.name, err)
 		return fmt.Errorf("kernel: start discv5: %w", err)
 	}
-
-	Debug("Successfully started DiscV5 for %s", d.n.name)
 	return nil
 }
 
-// StopDiscV5 stops DiscV5 peer discovery.
-func (d Discovery) StopDiscV5() error {
+// Stop stops DiscV5 peer discovery.
+func (d *DiscV5) Stop() error {
 	if err := d.n.check(); err != nil {
 		return err
 	}
 
 	if err := ffi.StopDiscV5(d.n.h); err != nil {
-		Error("Failed to stop DiscV5 for %s: %v", d.n.name, err)
 		return fmt.Errorf("kernel: stop discv5: %w", err)
 	}
-
-	Debug("Successfully stopped DiscV5 for %s", d.n.name)
 	return nil
 }
 
-// DNSDiscovery resolves an ENR tree URL and returns the multiaddresses it
+// PeerExchange is a Node's peer exchange protocol surface. Take one with
+// Node.PeerExchange.
+type PeerExchange struct{ n *Node }
+
+// Request asks peer exchange for numPeers peers and returns how many were
+// received.
+func (p *PeerExchange) Request(numPeers uint64) (uint64, error) {
+	if err := p.n.check(); err != nil {
+		return 0, err
+	}
+
+	countStr, err := ffi.PeerExchangeRequest(p.n.h, numPeers)
+	if err != nil {
+		return 0, fmt.Errorf("kernel: peer exchange request: %w", err)
+	}
+	return strconv.ParseUint(countStr, 10, 64)
+}
+
+// DNSDiscovery is a Node's DNS-based peer discovery surface. Take one with
+// Node.DNSDiscovery.
+type DNSDiscovery struct{ n *Node }
+
+// Resolve resolves an ENR tree URL and returns the multiaddresses it
 // advertises. A ctx without a deadline gets the package default of 30s.
-func (d Discovery) DNSDiscovery(
+func (d *DNSDiscovery) Resolve(
 	ctx context.Context, enrTreeURL, nameDNSServer string,
 ) ([]multiaddr.Multiaddr, error) {
 	if err := d.n.check(); err != nil {
@@ -63,18 +78,4 @@ func (d Discovery) DNSDiscovery(
 		return nil, fmt.Errorf("kernel: dns discovery: %w", err)
 	}
 	return parseMultiaddrs(list)
-}
-
-// PeerExchangeRequest asks peer exchange for numPeers peers and returns how
-// many were received.
-func (d Discovery) PeerExchangeRequest(numPeers uint64) (uint64, error) {
-	if err := d.n.check(); err != nil {
-		return 0, err
-	}
-
-	countStr, err := ffi.PeerExchangeRequest(d.n.h, numPeers)
-	if err != nil {
-		return 0, fmt.Errorf("kernel: peer exchange request: %w", err)
-	}
-	return strconv.ParseUint(countStr, 10, 64)
 }

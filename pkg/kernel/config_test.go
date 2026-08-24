@@ -23,7 +23,6 @@ func TestConfigMarshalsLayeredShape(t *testing.T) {
 		Mode:               ModeCore,
 		Preset:             PresetLogosDev,
 		MessagingOverrides: Overrides{"tcp-port": 60000},
-		Name:               "labelled-in-logs-only",
 	})
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)

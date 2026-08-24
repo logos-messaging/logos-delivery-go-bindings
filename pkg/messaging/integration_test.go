@@ -109,7 +109,6 @@ func TestKernelAPIOnClientNode(t *testing.T) {
 	client, err := New(Config{
 		Mode:   ModeCore,
 		Preset: PresetLogosDev,
-		Name:   "kernel-api-probe",
 		MessagingOverrides: Overrides{
 			"listen-address": "0.0.0.0",
 			"tcp-port":       60124,
@@ -135,7 +134,7 @@ func TestKernelAPIOnClientNode(t *testing.T) {
 
 	node := client.Node()
 
-	peerID, err := node.PeerID()
+	peerID, err := node.Debug().PeerID()
 	if err != nil {
 		t.Fatalf("PeerID: %v", err)
 	}
@@ -144,20 +143,20 @@ func TestKernelAPIOnClientNode(t *testing.T) {
 	}
 	t.Logf("peer id: %s", peerID)
 
-	version, err := node.Version()
+	version, err := node.Debug().Version()
 	if err != nil {
 		t.Fatalf("Version: %v", err)
 	}
 	t.Logf("version: %s", version)
 
-	if _, err := node.ListenAddresses(); err != nil {
+	if _, err := node.Debug().ListenAddresses(); err != nil {
 		t.Fatalf("ListenAddresses: %v", err)
 	}
-	if _, err := node.ENR(); err != nil {
+	if _, err := node.Debug().ENR(); err != nil {
 		t.Fatalf("ENR: %v", err)
 	}
 
-	metrics, err := node.Metrics()
+	metrics, err := node.Debug().Metrics()
 	if err != nil {
 		t.Fatalf("Metrics: %v", err)
 	}

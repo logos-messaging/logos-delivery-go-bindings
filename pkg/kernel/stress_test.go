@@ -19,24 +19,19 @@ import (
 )
 
 func TestStressMemoryUsageForThreeNodes(t *testing.T) {
+	requiresNode(t)
 	testName := t.Name()
 	var err error
 	captureMemory(t.Name(), "start")
 	node1Cfg := DefaultWakuConfig
-	node1Cfg.TcpPort, node1Cfg.Discv5UdpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 	node2Cfg := DefaultWakuConfig
-	node2Cfg.TcpPort, node2Cfg.Discv5UdpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 	node3Cfg := DefaultWakuConfig
-	node3Cfg.TcpPort, node3Cfg.Discv5UdpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
-	node1, err := NewFromWakuConfig(&node1Cfg, "node1")
+	node1, err := NewFromWakuConfig(&node1Cfg)
 	require.NoError(t, err)
-	node2, err := NewFromWakuConfig(&node2Cfg, "node2")
+	node2, err := NewFromWakuConfig(&node2Cfg)
 	require.NoError(t, err)
-	node3, err := NewFromWakuConfig(&node3Cfg, "node3")
+	node3, err := NewFromWakuConfig(&node3Cfg)
 	require.NoError(t, err)
 
 	captureMemory(t.Name(), "before nodes start")
@@ -62,28 +57,29 @@ func TestStressMemoryUsageForThreeNodes(t *testing.T) {
 
 	captureMemory(t.Name(), "at end")
 
-	Debug("[%s] Test completed successfully", testName)
+	logDebug("[%s] Test completed successfully", testName)
 }
 
 func TestStressStoreQuery5kMessagesWithPagination(t *testing.T) {
-	Debug("Starting test")
+	requiresNode(t)
+	logDebug("Starting test")
 	runtime.GC()
 	nodeConfig := DefaultWakuConfig
 	nodeConfig.Relay = true
 	nodeConfig.Store = true
 
-	Debug("Creating 2 nodes")
-	wakuNode, err := StartWakuNode("node1", &nodeConfig)
+	logDebug("Creating 2 nodes")
+	wakuNode, err := StartWakuNode(&nodeConfig)
 	require.NoError(t, err, "Failed to start Waku node")
 
-	node2, err := StartWakuNode("node2", &nodeConfig)
+	node2, err := StartWakuNode(&nodeConfig)
 	require.NoError(t, err, "Failed to start Waku node")
 	node2.Peers().ConnectTo(context.Background(), wakuNode)
 
 	time.Sleep(200 * time.Millisecond)
 
 	defer func() {
-		Debug("Stopping and destroying Waku node")
+		logDebug("Stopping and destroying Waku node")
 		wakuNode.Close()
 		node2.Close()
 	}()
@@ -118,26 +114,27 @@ func TestStressStoreQuery5kMessagesWithPagination(t *testing.T) {
 			require.NoError(t, err, "Failed to query store messages")
 			require.Greater(t, len(*storedmsgs.Messages), 0, "Expected at least one stored message")
 		}
-		Debug("##Iteration #%d", i)
+		logDebug("##Iteration #%d", i)
 	}
 
 	captureMemory(t.Name(), "at end")
 
-	Debug("[%s] Test completed successfully", t.Name())
+	logDebug("[%s] Test completed successfully", t.Name())
 }
 
 func TestStressHighThroughput10kPublish(t *testing.T) {
+	requiresNode(t)
 	node1Cfg := DefaultWakuConfig
 	node1Cfg.Relay = true
 
-	node1, err := StartWakuNode("node1", &node1Cfg)
+	node1, err := StartWakuNode(&node1Cfg)
 	require.NoError(t, err, "failed to start node1")
 	defer node1.Close()
 
 	node2Cfg := DefaultWakuConfig
 	node2Cfg.Relay = true
 
-	node2, err := StartWakuNode("node2", &node2Cfg)
+	node2, err := StartWakuNode(&node2Cfg)
 	require.NoError(t, err, "failed to start node2")
 	defer node2.Close()
 
@@ -154,7 +151,7 @@ func TestStressHighThroughput10kPublish(t *testing.T) {
 
 		hash, err := node1.Relay().Publish(context.Background(), pubsubTopic, msg)
 		require.NoError(t, err, "publish failed @%d", i)
-		Debug("Iteration-10kpublish #%d", i)
+		logDebug("Iteration-10kpublish #%d", i)
 		err = node2.VerifyMessageReceived(msg, hash)
 		require.NoError(t, err, "verification failed @%d", i)
 
@@ -164,15 +161,16 @@ func TestStressHighThroughput10kPublish(t *testing.T) {
 }
 
 func TestStressConnectDisconnect1kIteration(t *testing.T) {
+	requiresNode(t)
 	captureMemory(t.Name(), "at start")
 
 	node0Cfg := DefaultWakuConfig
 	node0Cfg.Relay = true
-	node0, err := StartWakuNode("node0", &node0Cfg)
+	node0, err := StartWakuNode(&node0Cfg)
 	require.NoError(t, err)
 	node1Cfg := DefaultWakuConfig
 	node1Cfg.Relay = true
-	node1, err := StartWakuNode("node1", &node1Cfg)
+	node1, err := StartWakuNode(&node1Cfg)
 	require.NoError(t, err)
 	defer func() {
 		node0.Close()
@@ -186,23 +184,24 @@ func TestStressConnectDisconnect1kIteration(t *testing.T) {
 		time.Sleep(150 * time.Millisecond)
 		count, err := node0.Peers().NumConnected()
 		require.NoError(t, err, "Iteration %d: failed to get peers for node0", i)
-		Debug("Iteration %d: node0 sees %d connected peers", i, count)
+		logDebug("Iteration %d: node0 sees %d connected peers", i, count)
 		if count == 1 {
 			msg := node0.CreateMessage()
 			msg.Payload = []byte(fmt.Sprintf("Iteration %d: message from node0", i))
 			msgHash, err := node0.Relay().Publish(context.Background(), DefaultPubsubTopic, msg)
 			require.NoError(t, err, "Iteration %d: node0 failed to publish message", i)
-			Debug("Iteration %d: node0 published message with hash %s", i, msgHash.String())
+			logDebug("Iteration %d: node0 published message with hash %s", i, msgHash.String())
 		}
 		err = node0.Peers().DisconnectFrom(node1)
 		require.NoError(t, err, "Iteration %d: node0 failed to disconnect from node1", i)
-		Debug("Iteration %d: node0 disconnected from node1", i)
+		logDebug("Iteration %d: node0 disconnected from node1", i)
 		time.Sleep(250 * time.Millisecond)
 	}
 	captureMemory(t.Name(), "at end")
 }
 
 func TestStressRandomNodesInMesh(t *testing.T) {
+	requiresNode(t)
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	minNodes := 5
@@ -212,7 +211,7 @@ func TestStressRandomNodesInMesh(t *testing.T) {
 	for i := 0; i < minNodes; i++ {
 		cfg := DefaultWakuConfig
 		cfg.Relay = true
-		n, err := StartWakuNode(fmt.Sprintf("node%d", i+1), &cfg)
+		n, err := StartWakuNode(&cfg)
 		require.NoError(t, err, "Failed to start initial node %d", i+1)
 		nodes = append(nodes, n)
 	}
@@ -233,30 +232,30 @@ func TestStressRandomNodesInMesh(t *testing.T) {
 			i := len(nodes)
 			cfg := DefaultWakuConfig
 			cfg.Relay = true
-			newNode, err := StartWakuNode(fmt.Sprintf("node%d", i+1), &cfg)
+			newNode, err := StartWakuNode(&cfg)
 			if err == nil {
 				nodes = append(nodes, newNode)
 				err := ConnectAllPeers(nodes)
 				if err == nil {
-					Debug("Added node%d, now connecting all peers", i+1)
+					logDebug("Added node%d, now connecting all peers", i+1)
 				} else {
-					Debug("Failed to reconnect all peers after adding node%d: %v", i+1, err)
+					logDebug("Failed to reconnect all peers after adding node%d: %v", i+1, err)
 				}
 			} else {
-				Debug("Failed to start new node: %v", err)
+				logDebug("Failed to start new node: %v", err)
 			}
 		} else if action == 1 && len(nodes) > minNodes {
 			removeIndex := r.Intn(len(nodes))
 			toRemove := nodes[removeIndex]
 			nodes = append(nodes[:removeIndex], nodes[removeIndex+1:]...)
 			toRemove.Close()
-			Debug("Removed node  %d from mesh", removeIndex)
+			logDebug("Removed node  %d from mesh", removeIndex)
 			if len(nodes) > 1 {
 				err := ConnectAllPeers(nodes)
 				if err == nil {
-					Debug("Reconnected all peers  node  %d", removeIndex)
+					logDebug("Reconnected all peers  node  %d", removeIndex)
 				} else {
-					Debug("Failed to reconnect all peers when removing node  %d: %v", removeIndex, err)
+					logDebug("Failed to reconnect all peers when removing node  %d: %v", removeIndex, err)
 				}
 			}
 		}
@@ -266,9 +265,9 @@ func TestStressRandomNodesInMesh(t *testing.T) {
 		for j, n := range nodes {
 			count, err := n.Peers().NumConnected()
 			if err != nil {
-				Debug("Node%d: error getting connected peers: %v", j+1, err)
+				logDebug("Node%d: error getting connected peers: %v", j+1, err)
 			} else {
-				Debug("Node%d sees %d connected peers", j+1, count)
+				logDebug("Node%d sees %d connected peers", j+1, count)
 			}
 		}
 
@@ -283,14 +282,15 @@ func TestStressRandomNodesInMesh(t *testing.T) {
 }
 
 func TestStressLargePayloadEphemeralMessagesEndurance(t *testing.T) {
+	requiresNode(t)
 	nodePubCfg := DefaultWakuConfig
 	nodePubCfg.Relay = true
-	publisher, err := StartWakuNode("publisher", &nodePubCfg)
+	publisher, err := StartWakuNode(&nodePubCfg)
 	require.NoError(t, err)
 
 	nodeRecvCfg := DefaultWakuConfig
 	nodeRecvCfg.Relay = true
-	receiver, err := StartWakuNode("receiver", &nodeRecvCfg)
+	receiver, err := StartWakuNode(&nodeRecvCfg)
 	require.NoError(t, err)
 
 	err = receiver.Relay().Subscribe(DefaultPubsubTopic)
@@ -327,11 +327,11 @@ func TestStressLargePayloadEphemeralMessagesEndurance(t *testing.T) {
 		if err == nil {
 			publishedMessages++
 		} else {
-			Error("Error publishing ephemeral message: %v", err)
+			logError("Error publishing ephemeral message: %v", err)
 		}
 
 		time.Sleep(1 * time.Second)
-		Debug("###Iteration number %d", i+1)
+		logDebug("###Iteration number %d", i+1)
 	}
 
 	captureMemory(t.Name(), "at end")
@@ -339,6 +339,7 @@ func TestStressLargePayloadEphemeralMessagesEndurance(t *testing.T) {
 }
 
 func TestStress2Nodes2kIterationTearDown(t *testing.T) {
+	requiresNode(t)
 
 	captureMemory(t.Name(), "at start")
 	var err error
@@ -349,7 +350,6 @@ func TestStress2Nodes2kIterationTearDown(t *testing.T) {
 			cfg := DefaultWakuConfig
 			cfg.Relay = true
 			cfg.Discv5Discovery = false
-			cfg.TcpPort, cfg.Discv5UdpPort, err = GetFreePortIfNeeded(0, 0)
 			require.NoError(t, err, "Failed to get free ports for node%d", n)
 			node, err := NewFromWakuConfig(&cfg, fmt.Sprintf("node%d", n))
 			require.NoError(t, err, "Failed to create node%d", n)
@@ -372,7 +372,7 @@ func TestStress2Nodes2kIterationTearDown(t *testing.T) {
 		runtime.GC()
 		time.Sleep(250 * time.Millisecond)
 		runtime.GC()
-		Debug("Iteration numberrrrrr  %d", i)
+		logDebug("Iteration numberrrrrr  %d", i)
 	}
 	runtime.GC()
 	time.Sleep(500 * time.Millisecond)
@@ -382,18 +382,19 @@ func TestStress2Nodes2kIterationTearDown(t *testing.T) {
 }
 
 func TestPeerExchangePXLoad(t *testing.T) {
+	requiresNode(t)
 	pxServerCfg := DefaultWakuConfig
 	pxServerCfg.PeerExchange = true
 	pxServerCfg.Relay = true
-	pxServer, err := StartWakuNode("PXServer", &pxServerCfg)
+	pxServer, err := StartWakuNode(&pxServerCfg)
 	require.NoError(t, err, "Failed to start PX server")
 	defer pxServer.Close()
 
-	relayA, err := StartWakuNode("RelayA", &DefaultWakuConfig)
+	relayA, err := StartWakuNode(&DefaultWakuConfig)
 	require.NoError(t, err, "Failed to start RelayA")
 	defer relayA.Close()
 
-	relayB, err := StartWakuNode("RelayB", &DefaultWakuConfig)
+	relayB, err := StartWakuNode(&DefaultWakuConfig)
 	require.NoError(t, err, "Failed to start RelayB")
 	defer relayB.Close()
 
@@ -424,17 +425,17 @@ func TestPeerExchangePXLoad(t *testing.T) {
 		lightCfg.Relay = false
 		lightCfg.Store = false
 		lightCfg.PeerExchange = true
-		lightNode, err := StartWakuNode("LightNode", &lightCfg)
+		lightNode, err := StartWakuNode(&lightCfg)
 		if err == nil {
 			errPX := lightNode.Peers().ConnectTo(context.Background(), pxServer)
 			if errPX == nil {
 				// Request peers from PX server
-				_, _ = lightNode.Discovery().PeerExchangeRequest(2)
+				_, _ = lightNode.PeerExchange().Request(2)
 			}
 			time.Sleep(3 * time.Second)
 			lightNode.Close()
 		} else {
-			Debug("Failed to start light node: %v", err)
+			logDebug("Failed to start light node: %v", err)
 		}
 
 		time.Sleep(1 * time.Second)

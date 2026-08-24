@@ -16,7 +16,7 @@ type Store struct{ n *Node }
 
 // Query runs a store query against a store peer and returns its response. A
 // ctx without a deadline gets the package default of 30s.
-func (s Store) Query(
+func (s *Store) Query(
 	ctx context.Context, request *common.StoreQueryRequest, peerInfo peer.AddrInfo,
 ) (*common.StoreQueryResponse, error) {
 	if err := s.n.check(); err != nil {

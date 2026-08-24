@@ -22,7 +22,7 @@ type Peers struct{ n *Node }
 
 // Connect dials a peer multiaddress. A ctx without a deadline gets the package
 // default of 30s.
-func (p Peers) Connect(ctx context.Context, addr multiaddr.Multiaddr) error {
+func (p *Peers) Connect(ctx context.Context, addr multiaddr.Multiaddr) error {
 	if err := p.n.check(); err != nil {
 		return err
 	}
@@ -37,26 +37,25 @@ func (p Peers) Connect(ctx context.Context, addr multiaddr.Multiaddr) error {
 }
 
 // ConnectTo dials another node by its first listen address.
-func (p Peers) ConnectTo(ctx context.Context, target *Node) error {
+func (p *Peers) ConnectTo(ctx context.Context, target *Node) error {
 	if target == nil {
 		return errors.New("kernel: connect: target node is nil")
 	}
 
-	addrs, err := target.ListenAddresses()
+	addrs, err := target.Debug().ListenAddresses()
 	if err != nil {
 		return err
 	}
 	if len(addrs) == 0 {
-		return fmt.Errorf("kernel: connect: %s has no listen addresses", target.name)
+		return errors.New("kernel: connect: target node has no listen addresses")
 	}
 
-	Debug("Connecting %s to %s", p.n.name, target.name)
 	return p.Connect(ctx, addrs[0])
 }
 
 // Dial dials a peer multiaddress over a specific protocol. A ctx without a
 // deadline gets the package default of 30s.
-func (p Peers) Dial(ctx context.Context, addr multiaddr.Multiaddr, protocol libp2pproto.ID) error {
+func (p *Peers) Dial(ctx context.Context, addr multiaddr.Multiaddr, protocol libp2pproto.ID) error {
 	if err := p.n.check(); err != nil {
 		return err
 	}
@@ -74,7 +73,7 @@ func (p Peers) Dial(ctx context.Context, addr multiaddr.Multiaddr, protocol libp
 
 // DialByID dials a known peer over a specific protocol. A ctx without a
 // deadline gets the package default of 30s.
-func (p Peers) DialByID(ctx context.Context, id peer.ID, protocol libp2pproto.ID) error {
+func (p *Peers) DialByID(ctx context.Context, id peer.ID, protocol libp2pproto.ID) error {
 	if err := p.n.check(); err != nil {
 		return err
 	}
@@ -91,7 +90,7 @@ func (p Peers) DialByID(ctx context.Context, id peer.ID, protocol libp2pproto.ID
 }
 
 // Disconnect drops the connection to a peer.
-func (p Peers) Disconnect(id peer.ID) error {
+func (p *Peers) Disconnect(id peer.ID) error {
 	if err := p.n.check(); err != nil {
 		return err
 	}
@@ -103,22 +102,21 @@ func (p Peers) Disconnect(id peer.ID) error {
 }
 
 // DisconnectFrom drops the connection to another node.
-func (p Peers) DisconnectFrom(target *Node) error {
+func (p *Peers) DisconnectFrom(target *Node) error {
 	if target == nil {
 		return errors.New("kernel: disconnect: target node is nil")
 	}
 
-	id, err := target.PeerID()
+	id, err := target.Debug().PeerID()
 	if err != nil {
 		return err
 	}
 
-	Debug("Disconnecting %s from %s", p.n.name, target.name)
 	return p.Disconnect(id)
 }
 
 // DisconnectAll drops every peer connection.
-func (p Peers) DisconnectAll() error {
+func (p *Peers) DisconnectAll() error {
 	if err := p.n.check(); err != nil {
 		return err
 	}
@@ -130,7 +128,7 @@ func (p Peers) DisconnectAll() error {
 }
 
 // Connected returns the currently connected peers.
-func (p Peers) Connected() (peer.IDSlice, error) {
+func (p *Peers) Connected() (peer.IDSlice, error) {
 	if err := p.n.check(); err != nil {
 		return nil, err
 	}
@@ -143,7 +141,7 @@ func (p Peers) Connected() (peer.IDSlice, error) {
 }
 
 // NumConnected returns the number of currently connected peers.
-func (p Peers) NumConnected() (int, error) {
+func (p *Peers) NumConnected() (int, error) {
 	peers, err := p.Connected()
 	if err != nil {
 		return 0, err
@@ -152,7 +150,7 @@ func (p Peers) NumConnected() (int, error) {
 }
 
 // ConnectedInfo returns the protocols and addresses of every connected peer.
-func (p Peers) ConnectedInfo() (common.PeersData, error) {
+func (p *Peers) ConnectedInfo() (common.PeersData, error) {
 	if err := p.n.check(); err != nil {
 		return nil, err
 	}
@@ -174,7 +172,7 @@ func (p Peers) ConnectedInfo() (common.PeersData, error) {
 
 // FromPeerStore returns every peer the peer store knows about, connected or
 // not.
-func (p Peers) FromPeerStore() (peer.IDSlice, error) {
+func (p *Peers) FromPeerStore() (peer.IDSlice, error) {
 	if err := p.n.check(); err != nil {
 		return nil, err
 	}
@@ -187,7 +185,7 @@ func (p Peers) FromPeerStore() (peer.IDSlice, error) {
 }
 
 // ByProtocol returns the known peers that support a protocol.
-func (p Peers) ByProtocol(protocol libp2pproto.ID) (peer.IDSlice, error) {
+func (p *Peers) ByProtocol(protocol libp2pproto.ID) (peer.IDSlice, error) {
 	if err := p.n.check(); err != nil {
 		return nil, err
 	}
@@ -201,7 +199,7 @@ func (p Peers) ByProtocol(protocol libp2pproto.ID) (peer.IDSlice, error) {
 
 // Ping measures the round-trip time to a peer. A ctx without a deadline gets
 // the package default of 30s.
-func (p Peers) Ping(ctx context.Context, peerInfo peer.AddrInfo) (time.Duration, error) {
+func (p *Peers) Ping(ctx context.Context, peerInfo peer.AddrInfo) (time.Duration, error) {
 	if err := p.n.check(); err != nil {
 		return 0, err
 	}
