@@ -77,10 +77,7 @@ import (
 	"unsafe"
 )
 
-// Handle is a node context owned by the C library. It is deliberately a
-// defined type wrapping the pointer rather than an alias for it: pkg/kernel
-// hands Handles to sibling packages in this module, and a defined type in an
-// internal package cannot be named — let alone dereferenced — from outside.
+// Handle is a node context owned by the C library.
 type Handle struct{ ctx unsafe.Pointer }
 
 // RetOK is the return code callbacks report on success.

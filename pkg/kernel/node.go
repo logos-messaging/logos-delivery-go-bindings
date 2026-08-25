@@ -59,12 +59,8 @@ type Node struct {
 	closeHooks []func()
 }
 
-// Handle returns the library context a node owns.
-//
-// It is plumbing for the API tiers this module builds on a node, not part of
-// the binding's surface: ffi.Handle is a defined type in an internal package,
-// so code outside this module can neither name it nor do anything with the
-// value. Use the facades instead.
+// Handle returns the library context a node owns, for the API tiers this
+// module builds on top of one. Use the facades instead.
 func Handle(n *Node) ffi.Handle { return n.h }
 
 // kernelEvents are the library's wire names for the events a Node consumes.
