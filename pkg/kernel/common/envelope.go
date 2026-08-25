@@ -16,13 +16,13 @@ type Envelope struct {
 }
 
 type wakuMessage struct {
-	Payload        []byte  `json:"payload,omitempty"`
-	ContentTopic   string  `json:"contentTopic,omitempty"`
-	Version        *uint32 `json:"version,omitempty"`
-	Timestamp      *int64  `json:"timestamp,omitempty"`
-	Meta           []byte  `json:"meta,omitempty"`
-	Ephemeral      *bool   `json:"ephemeral,omitempty"`
-	RateLimitProof []byte  `json:"proof,omitempty"`
+	Payload        wireBytes `json:"payload,omitempty"`
+	ContentTopic   string    `json:"contentTopic,omitempty"`
+	Version        *uint32   `json:"version,omitempty"`
+	Timestamp      *int64    `json:"timestamp,omitempty"`
+	Meta           wireBytes `json:"meta,omitempty"`
+	Ephemeral      *bool     `json:"ephemeral,omitempty"`
+	RateLimitProof wireBytes `json:"proof,omitempty"`
 }
 
 type wakuEnvelope struct {

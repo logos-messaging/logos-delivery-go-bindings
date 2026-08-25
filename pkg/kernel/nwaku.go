@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -229,15 +228,10 @@ func (n *WakuNode) GetConnectedRelayPeers(optPubsubTopic ...string) (peer.IDSlic
 		return nil, nil
 	}
 
-	peerIDs := strings.Split(peersStr, ",")
-	var peers peer.IDSlice
-	for _, peerID := range peerIDs {
-		id, err := peer.Decode(peerID)
-		if err != nil {
-			Error("Failed to decode peer ID for %v: %v", n.nodeName, err)
-			return nil, err
-		}
-		peers = append(peers, id)
+	peers, err := decodePeerIDs(peersStr)
+	if err != nil {
+		Error("Failed to decode peer IDs for %v: %v", n.nodeName, err)
+		return nil, err
 	}
 
 	Debug("Successfully fetched connected relay peers for pubsubTopic: %v, node: %v count: %v", pubsubTopic, n.nodeName, len(peers))
@@ -279,15 +273,10 @@ func (n *WakuNode) GetConnectedPeers() (peer.IDSlice, error) {
 		return nil, nil
 	}
 
-	peerIDs := strings.Split(peersStr, ",")
-	var peers peer.IDSlice
-	for _, peerID := range peerIDs {
-		id, err := peer.Decode(peerID)
-		if err != nil {
-			Error("Failed to decode peer ID for %v: %v", n.nodeName, err)
-			return nil, err
-		}
-		peers = append(peers, id)
+	peers, err := decodePeerIDs(peersStr)
+	if err != nil {
+		Error("Failed to decode peer IDs for %v: %v", n.nodeName, err)
+		return nil, err
 	}
 
 	Debug("Successfully fetched connected peers for %v, count: %v", n.nodeName, len(peers))
@@ -315,15 +304,10 @@ func (n *WakuNode) GetPeersInMesh(pubsubTopic string) (peer.IDSlice, error) {
 		return nil, nil
 	}
 
-	peerIDs := strings.Split(peersStr, ",")
-	var peers peer.IDSlice
-	for _, peerID := range peerIDs {
-		id, err := peer.Decode(peerID)
-		if err != nil {
-			Error("Failed to decode peer ID for %v: %v", n.nodeName, err)
-			return nil, err
-		}
-		peers = append(peers, id)
+	peers, err := decodePeerIDs(peersStr)
+	if err != nil {
+		Error("Failed to decode peer IDs for %v: %v", n.nodeName, err)
+		return nil, err
 	}
 
 	Debug("Successfully fetched mesh peers for pubsubTopic: %v, node: %v count: %v", pubsubTopic, n.nodeName, len(peers))
@@ -528,16 +512,7 @@ func (n *WakuNode) DnsDiscovery(ctx context.Context, enrTreeUrl string, nameDnsS
 		return nil, fmt.Errorf("error WakuDnsDiscovery: %w", err)
 	}
 
-	var addrsRet []multiaddr.Multiaddr
-	addrss := strings.Split(nodeAddresses, ",")
-	for _, addr := range addrss {
-		addr, err := multiaddr.NewMultiaddr(addr)
-		if err != nil {
-			return nil, err
-		}
-		addrsRet = append(addrsRet, addr)
-	}
-	return addrsRet, nil
+	return decodeMultiaddrs(nodeAddresses)
 }
 
 func (n *WakuNode) PingPeer(ctx context.Context, peerInfo peer.AddrInfo) (time.Duration, error) {
@@ -651,16 +626,7 @@ func (n *WakuNode) ListenAddresses() ([]multiaddr.Multiaddr, error) {
 		return nil, fmt.Errorf("error WakuListenAddresses: %w", err)
 	}
 
-	var addrsRet []multiaddr.Multiaddr
-	addrss := strings.Split(listenAddresses, ",")
-	for _, addr := range addrss {
-		addr, err := multiaddr.NewMultiaddr(addr)
-		if err != nil {
-			return nil, err
-		}
-		addrsRet = append(addrsRet, addr)
-	}
-	return addrsRet, nil
+	return decodeMultiaddrs(listenAddresses)
 }
 
 func (n *WakuNode) ENR() (*enode.Node, error) {
@@ -699,16 +665,9 @@ func (n *WakuNode) GetPeerIDsFromPeerStore() (peer.IDSlice, error) {
 	if peersStr == "" {
 		return nil, nil
 	}
-	// peersStr contains a comma-separated list of peer ids
-	itemsPeerIds := strings.Split(peersStr, ",")
-
-	var peers peer.IDSlice
-	for _, peerId := range itemsPeerIds {
-		id, err := peer.Decode(peerId)
-		if err != nil {
-			return nil, fmt.Errorf("GetPeerIdsFromPeerStore - decoding peerId: %w", err)
-		}
-		peers = append(peers, id)
+	peers, err := decodePeerIDs(peersStr)
+	if err != nil {
+		return nil, fmt.Errorf("GetPeerIdsFromPeerStore - decoding peerId: %w", err)
 	}
 	return peers, nil
 }
@@ -741,16 +700,9 @@ func (n *WakuNode) GetPeerIDsByProtocol(protocol libp2pproto.ID) (peer.IDSlice, 
 	if peersStr == "" {
 		return nil, nil
 	}
-	// peersStr contains a comma-separated list of peer ids
-	itemsPeerIds := strings.Split(peersStr, ",")
-
-	var peers peer.IDSlice
-	for _, p := range itemsPeerIds {
-		id, err := peer.Decode(p)
-		if err != nil {
-			return nil, fmt.Errorf("GetPeerIdsByProtocol - decoding peerId: %w", err)
-		}
-		peers = append(peers, id)
+	peers, err := decodePeerIDs(peersStr)
+	if err != nil {
+		return nil, fmt.Errorf("GetPeerIdsByProtocol - decoding peerId: %w", err)
 	}
 	return peers, nil
 }
@@ -797,56 +749,6 @@ func FormatWakuRelayTopic(clusterId uint16, shard uint16) string {
 	return fmt.Sprintf("/waku/2/rs/%d/%d", clusterId, shard)
 }
 
-func GetFreePortIfNeeded(tcpPort int, discV5UDPPort int) (int, int, error) {
-	if tcpPort == 0 {
-		for i := 0; i < 10; i++ {
-			tcpAddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort("localhost", "0"))
-			if err != nil {
-				Warn("unable to resolve tcp addr: %v", err)
-				continue
-			}
-			tcpListener, err := net.ListenTCP("tcp", tcpAddr)
-			if err != nil {
-				Warn("unable to listen on addr: addr=%v, error=%v", tcpAddr, err)
-
-				continue
-			}
-			tcpPort = tcpListener.Addr().(*net.TCPAddr).Port
-			tcpListener.Close()
-			break
-		}
-		if tcpPort == 0 {
-			return -1, -1, errors.New("could not obtain a free TCP port")
-		}
-	}
-
-	if discV5UDPPort == 0 {
-		for i := 0; i < 10; i++ {
-			udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort("localhost", "0"))
-			if err != nil {
-				Warn("unable to resolve udp addr: %v", err)
-				continue
-			}
-
-			udpListener, err := net.ListenUDP("udp", udpAddr)
-			if err != nil {
-				Warn("unable to listen on addr: addr=%v, error=%v", udpAddr, err)
-
-				continue
-			}
-
-			discV5UDPPort = udpListener.LocalAddr().(*net.UDPAddr).Port
-			udpListener.Close()
-			break
-		}
-		if discV5UDPPort == 0 {
-			return -1, -1, errors.New("could not obtain a free UDP port")
-		}
-	}
-
-	return tcpPort, discV5UDPPort, nil
-}
-
 // Create & start node
 func StartWakuNode(nodeName string, customCfg *common.WakuConfig) (*WakuNode, error) {
 
@@ -857,19 +759,6 @@ func StartWakuNode(nodeName string, customCfg *common.WakuConfig) (*WakuNode, er
 		nodeCfg = DefaultWakuConfig
 	} else {
 		nodeCfg = *customCfg
-	}
-
-	tcpPort, udpPort, err := GetFreePortIfNeeded(nodeCfg.TcpPort, nodeCfg.Discv5UdpPort)
-	if err != nil {
-		Error("Failed to allocate unique ports: %v", err)
-		tcpPort, udpPort = 0, 0
-	}
-
-	if nodeCfg.TcpPort == 0 {
-		nodeCfg.TcpPort = tcpPort
-	}
-	if nodeCfg.Discv5UdpPort == 0 {
-		nodeCfg.Discv5UdpPort = udpPort
 	}
 
 	Debug("Creating %s", nodeName)

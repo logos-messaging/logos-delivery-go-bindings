@@ -188,8 +188,6 @@ func TestBasicWaku(t *testing.T) {
 
 func TestPeerExchange(t *testing.T) {
 
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 	// start node that will be discovered by PeerExchange
 	discV5NodeWakuConfig := common.WakuConfig{
 		Relay:           true,
@@ -198,8 +196,6 @@ func TestPeerExchange(t *testing.T) {
 		ClusterID:       16,
 		Shards:          []uint16{64},
 		PeerExchange:    false,
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	discV5Node, err := NewWakuNode(&discV5NodeWakuConfig, "discV5Node")
@@ -212,8 +208,6 @@ func TestPeerExchange(t *testing.T) {
 	discv5NodeEnr, err := discV5Node.ENR()
 	require.NoError(t, err)
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node which serves as PeerExchange server
 	pxServerWakuConfig := common.WakuConfig{
@@ -223,9 +217,7 @@ func TestPeerExchange(t *testing.T) {
 		ClusterID:            16,
 		Shards:               []uint16{64},
 		PeerExchange:         true,
-		Discv5UdpPort:        udpPort,
 		Discv5BootstrapNodes: []string{discv5NodeEnr.String()},
-		TcpPort:              tcpPort,
 	}
 
 	pxServerNode, err := NewWakuNode(&pxServerWakuConfig, "pxServerNode")
@@ -261,8 +253,6 @@ func TestPeerExchange(t *testing.T) {
 	}, options)
 	require.NoError(t, err)
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start light node which uses PeerExchange to discover peers
 	pxClientWakuConfig := common.WakuConfig{
@@ -272,8 +262,6 @@ func TestPeerExchange(t *testing.T) {
 		ClusterID:        16,
 		Shards:           []uint16{64},
 		PeerExchange:     true,
-		Discv5UdpPort:    udpPort,
-		TcpPort:          tcpPort,
 		PeerExchangeNode: serverNodeMa[0].String(),
 	}
 
@@ -321,8 +309,6 @@ func TestPeerExchange(t *testing.T) {
 
 func TestDnsDiscover(t *testing.T) {
 
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	nameserver := "8.8.8.8"
 	nodeWakuConfig := common.WakuConfig{
@@ -330,8 +316,6 @@ func TestDnsDiscover(t *testing.T) {
 		LogLevel:      "DEBUG",
 		ClusterID:     16,
 		Shards:        []uint16{64},
-		Discv5UdpPort: udpPort,
-		TcpPort:       tcpPort,
 	}
 
 	node, err := NewWakuNode(&nodeWakuConfig, "node")
@@ -350,8 +334,6 @@ func TestDnsDiscover(t *testing.T) {
 
 func TestDial(t *testing.T) {
 
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node that will initiate the dial
 	dialerNodeWakuConfig := common.WakuConfig{
@@ -360,16 +342,12 @@ func TestDial(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	dialerNode, err := NewWakuNode(&dialerNodeWakuConfig, "dialerNode")
 	require.NoError(t, err)
 	require.NoError(t, dialerNode.Start())
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node that will receive the dial
 	receiverNodeWakuConfig := common.WakuConfig{
@@ -378,8 +356,6 @@ func TestDial(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	receiverNode, err := NewWakuNode(&receiverNodeWakuConfig, "receiverNode")
@@ -415,8 +391,6 @@ func TestDial(t *testing.T) {
 }
 
 func TestRelay(t *testing.T) {
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node that will send the message
 	senderNodeWakuConfig := common.WakuConfig{
@@ -425,16 +399,12 @@ func TestRelay(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	senderNode, err := NewWakuNode(&senderNodeWakuConfig, "senderNode")
 	require.NoError(t, err)
 	require.NoError(t, senderNode.Start())
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node that will receive the message
 	receiverNodeWakuConfig := common.WakuConfig{
@@ -443,8 +413,6 @@ func TestRelay(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 	receiverNode, err := NewWakuNode(&receiverNodeWakuConfig, "receiverNode")
 	require.NoError(t, err)
@@ -476,9 +444,12 @@ func TestRelay(t *testing.T) {
 	}
 	// send message
 	pubsubTopic := FormatWakuRelayTopic(senderNodeWakuConfig.ClusterID, senderNodeWakuConfig.Shards[0])
+	require.NoError(t, SubscribeAndWaitForMesh([]*WakuNode{senderNode, receiverNode}, pubsubTopic))
+
 	ctx2, cancel2 := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel2()
-	senderNode.RelayPublish(ctx2, message, pubsubTopic)
+	_, err = senderNode.RelayPublish(ctx2, message, pubsubTopic)
+	require.NoError(t, err)
 
 	// Wait to receive message
 	select {
@@ -499,8 +470,6 @@ func TestTopicHealth(t *testing.T) {
 	clusterId := uint16(16)
 	shardId := uint16(64)
 
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node1
 	wakuConfig1 := common.WakuConfig{
@@ -509,16 +478,12 @@ func TestTopicHealth(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	node1, err := NewWakuNode(&wakuConfig1, "node1")
 	require.NoError(t, err)
 	require.NoError(t, node1.Start())
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node2
 	wakuConfig2 := common.WakuConfig{
@@ -527,8 +492,6 @@ func TestTopicHealth(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 	node2, err := NewWakuNode(&wakuConfig2, "node2")
 	require.NoError(t, err)
@@ -552,6 +515,8 @@ func TestTopicHealth(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, peerCount2 == 1, "node2 should have 1 peer")
 
+	require.NoError(t, SubscribeAndWaitForMesh([]*WakuNode{node1, node2}, FormatWakuRelayTopic(clusterId, shardId)))
+
 	// Wait to receive topic health update
 	select {
 	case topicHealth := <-node2.TopicHealthChan:
@@ -572,8 +537,6 @@ func TestConnectionChange(t *testing.T) {
 	clusterId := uint16(16)
 	shardId := uint16(64)
 
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node1
 	wakuConfig1 := common.WakuConfig{
@@ -582,16 +545,12 @@ func TestConnectionChange(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	node1, err := NewWakuNode(&wakuConfig1, "node1")
 	require.NoError(t, err)
 	require.NoError(t, node1.Start())
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node2
 	wakuConfig2 := common.WakuConfig{
@@ -600,8 +559,6 @@ func TestConnectionChange(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 	node2, err := NewWakuNode(&wakuConfig2, "node2")
 	require.NoError(t, err)
@@ -628,29 +585,17 @@ func TestConnectionChange(t *testing.T) {
 	peerId1, err := node1.PeerID()
 	require.NoError(t, err)
 
-	// Wait to receive connectionChange event
-	select {
-	case connectionChange := <-node2.ConnectionChangeChan:
-		require.NotNil(t, connectionChange, "connectionChange should be updated")
-		require.Equal(t, connectionChange.PeerEvent, "Joined", "connectionChange Joined event should be emitted")
-		require.Equal(t, connectionChange.PeerId, peerId1, "connectionChange event should contain node 1's peerId")
-	case <-time.After(10 * time.Second):
-		t.Fatal("Timeout: No connectionChange event received within 10 seconds")
-	}
+	joined, err := node2.WaitForConnectionChange("EventConnected", 10*time.Second)
+	require.NoError(t, err, "connectionChange EventConnected event should be emitted")
+	require.Equal(t, peerId1, joined.PeerId, "connectionChange event should contain node 1's peerId")
 
 	// Disconnect from node1
 	err = node2.DisconnectPeerByID(peerId1)
 	require.NoError(t, err)
 
-	// Wait to receive connectionChange event
-	select {
-	case connectionChange := <-node2.ConnectionChangeChan:
-		require.NotNil(t, connectionChange, "connectionChange should be updated")
-		require.Equal(t, connectionChange.PeerEvent, "Left", "connectionChange Left event should be emitted")
-		require.Equal(t, connectionChange.PeerId, peerId1, "connectionChange event should contain node 1's peerId")
-	case <-time.After(10 * time.Second):
-		t.Fatal("Timeout: No connectionChange event received within 10 seconds")
-	}
+	left, err := node2.WaitForConnectionChange("EventDisconnected", 10*time.Second)
+	require.NoError(t, err, "connectionChange EventDisconnected event should be emitted")
+	require.Equal(t, peerId1, left.PeerId, "connectionChange event should contain node 1's peerId")
 
 	// Stop nodes
 	require.NoError(t, node1.Stop())
@@ -659,8 +604,6 @@ func TestConnectionChange(t *testing.T) {
 
 func TestStore(t *testing.T) {
 
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node that will send the message
 	senderNodeWakuConfig := common.WakuConfig{
@@ -670,16 +613,12 @@ func TestStore(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	senderNode, err := NewWakuNode(&senderNodeWakuConfig, "senderNode")
 	require.NoError(t, err)
 	require.NoError(t, senderNode.Start())
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node that will receive the message
 	receiverNodeWakuConfig := common.WakuConfig{
@@ -689,8 +628,6 @@ func TestStore(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 	receiverNode, err := NewWakuNode(&receiverNodeWakuConfig, "receiverNode")
 	require.NoError(t, err)
@@ -720,6 +657,7 @@ func TestStore(t *testing.T) {
 	timeStart := proto.Int64(time.Now().UnixNano())
 	hashes := []common.MessageHash{}
 	pubsubTopic := FormatWakuRelayTopic(senderNodeWakuConfig.ClusterID, senderNodeWakuConfig.Shards[0])
+	require.NoError(t, SubscribeAndWaitForMesh([]*WakuNode{senderNode, receiverNode}, pubsubTopic))
 
 	for i := 0; i < numMessages; i++ {
 		message := &pb.WakuMessage{
@@ -840,8 +778,6 @@ func TestParallelPings(t *testing.T) {
 	logger, err := zap.NewDevelopment()
 	require.NoError(t, err)
 
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node that will initiate the dial
 	dialerNodeWakuConfig := common.WakuConfig{
@@ -850,16 +786,12 @@ func TestParallelPings(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	dialerNode, err := NewWakuNode(&dialerNodeWakuConfig, "dialerNode")
 	require.NoError(t, err)
 	require.NoError(t, dialerNode.Start())
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	receiverNodeWakuConfig1 := common.WakuConfig{
 		Relay:           true,
@@ -867,8 +799,6 @@ func TestParallelPings(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	receiverNode1, err := NewWakuNode(&receiverNodeWakuConfig1, "receiverNode1")
@@ -879,8 +809,6 @@ func TestParallelPings(t *testing.T) {
 	require.NotNil(t, receiverMultiaddr1)
 	require.True(t, len(receiverMultiaddr1) > 0)
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	receiverNodeWakuConfig2 := common.WakuConfig{
 		Relay:           true,
@@ -888,8 +816,6 @@ func TestParallelPings(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	receiverNode2, err := NewWakuNode(&receiverNodeWakuConfig2, "receiverNode2")
@@ -900,8 +826,6 @@ func TestParallelPings(t *testing.T) {
 	require.NotNil(t, receiverMultiaddr2)
 	require.True(t, len(receiverMultiaddr2) > 0)
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	receiverNodeWakuConfig3 := common.WakuConfig{
 		Relay:           true,
@@ -909,8 +833,6 @@ func TestParallelPings(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	receiverNode3, err := NewWakuNode(&receiverNodeWakuConfig3, "receiverNode3")
@@ -968,8 +890,6 @@ func TestOnline(t *testing.T) {
 	clusterId := uint16(16)
 	shardId := uint16(64)
 
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node1
 	wakuConfig1 := common.WakuConfig{
@@ -978,16 +898,12 @@ func TestOnline(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	node1, err := NewWakuNode(&wakuConfig1, "node1")
 	require.NoError(t, err)
 	require.NoError(t, node1.Start())
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node2
 	wakuConfig2 := common.WakuConfig{
@@ -996,8 +912,6 @@ func TestOnline(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 	node2, err := NewWakuNode(&wakuConfig2, "node2")
 	require.NoError(t, err)
@@ -1035,8 +949,6 @@ func TestDisconnectAllPeers(t *testing.T) {
 	clusterId := uint16(16)
 	shardId := uint16(64)
 
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node1
 	wakuConfig1 := common.WakuConfig{
@@ -1045,8 +957,6 @@ func TestDisconnectAllPeers(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	node1, err := NewWakuNode(&wakuConfig1, "node1")
@@ -1054,8 +964,6 @@ func TestDisconnectAllPeers(t *testing.T) {
 	require.NoError(t, node1.Start())
 	defer node1.Stop()
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node2
 	wakuConfig2 := common.WakuConfig{
@@ -1064,8 +972,6 @@ func TestDisconnectAllPeers(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 	node2, err := NewWakuNode(&wakuConfig2, "node2")
 	require.NoError(t, err)
@@ -1076,8 +982,6 @@ func TestDisconnectAllPeers(t *testing.T) {
 	require.NotNil(t, multiaddr2)
 	require.True(t, len(multiaddr2) > 0)
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node3
 	wakuConfig3 := common.WakuConfig{
@@ -1086,8 +990,6 @@ func TestDisconnectAllPeers(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 	node3, err := NewWakuNode(&wakuConfig3, "node3")
 	require.NoError(t, err)
@@ -1098,8 +1000,6 @@ func TestDisconnectAllPeers(t *testing.T) {
 	require.NotNil(t, multiaddr3)
 	require.True(t, len(multiaddr3) > 0)
 
-	tcpPort, udpPort, err = GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	// start node4
 	wakuConfig4 := common.WakuConfig{
@@ -1108,8 +1008,6 @@ func TestDisconnectAllPeers(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 	node4, err := NewWakuNode(&wakuConfig4, "node4")
 	require.NoError(t, err)

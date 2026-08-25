@@ -141,6 +141,71 @@ func WaitForAutoConnection(nodeList []*WakuNode) error {
 	return nil
 }
 
+// WaitForConnectionChange drains the node's connection-change events until the
+// one carrying peerEvent arrives. The peer manager also emits
+// EventMetadataUpdated when a peer connects, so the wanted event is not
+// necessarily the first one on the channel.
+func (n *WakuNode) WaitForConnectionChange(peerEvent string, timeout time.Duration) (connectionChange, error) {
+	deadline := time.After(timeout)
+	for {
+		select {
+		case change := <-n.ConnectionChangeChan:
+			if change.PeerEvent == peerEvent {
+				return change, nil
+			}
+			Debug("Ignoring connection change %s while waiting for %s", change.PeerEvent, peerEvent)
+		case <-deadline:
+			return connectionChange{}, fmt.Errorf("timeout waiting for connection change %s", peerEvent)
+		}
+	}
+}
+
+// WaitForRelayMesh blocks until every node holds at least minPeers gossipsub
+// mesh peers on topic. The library only subscribes a node to its configured
+// shards when the embedding app registers a relay handler, which the FFI layer
+// never does, so callers must RelaySubscribe first or the mesh stays empty and
+// publishing fails with NoPeersToPublish.
+func WaitForRelayMesh(nodeList []*WakuNode, topic string, minPeers int) error {
+	Debug("Waiting for the relay mesh to form on topic %s", topic)
+
+	options := func(b *backoff.ExponentialBackOff) {
+		b.MaxElapsedTime = 30 * time.Second
+	}
+
+	err := RetryWithBackOff(func() error {
+		for _, node := range nodeList {
+			numPeers, err := node.GetNumPeersInMesh(topic)
+			if err != nil {
+				return err
+			}
+
+			if numPeers < minPeers {
+				return fmt.Errorf("node %s has %d mesh peers on %s, want %d",
+					node.nodeName, numPeers, topic, minPeers)
+			}
+		}
+
+		return nil
+	}, options)
+
+	if err != nil {
+		Error("Relay mesh did not form: %v", err)
+		return err
+	}
+
+	Debug("Relay mesh formed on topic %s", topic)
+	return nil
+}
+
+// SubscribeAndWaitForMesh subscribes every node to topic and waits until each
+// one has a mesh peer, the state a RelayPublish needs to reach anyone.
+func SubscribeAndWaitForMesh(nodeList []*WakuNode, topic string) error {
+	if err := SubscribeNodesToTopic(nodeList, topic); err != nil {
+		return err
+	}
+	return WaitForRelayMesh(nodeList, topic, 1)
+}
+
 func (n *WakuNode) VerifyMessageReceived(expectedMessage *pb.WakuMessage, expectedHash common.MessageHash, timeout ...time.Duration) error {
 
 	var verifyTimeout time.Duration
