@@ -14,14 +14,6 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     env:
-      # Clone the logos-delivery checkout OUTSIDE the module tree: a directory
-      # named `vendor/` at the module root would put Go into vendor mode.
-      LOGOS_DELIVERY_DIR: ${{ github.workspace }}/.logos-delivery
-      # The single liblogosdelivery library exposes the full API; its headers
-      # live in library/. The bridge self-links -llogosdelivery via a #cgo
-      # directive, so no -l is set here.
-      CGO_CFLAGS: -I${{ github.workspace }}/.logos-delivery/library/
-      CGO_LDFLAGS: -L${{ github.workspace }}/.logos-delivery/build/ -Wl,-rpath,${{ github.workspace }}/.logos-delivery/build/
       # Build in module mode; never use a vendor/ dir.
       GOFLAGS: -mod=mod
 
@@ -36,28 +28,34 @@ jobs:
         with:
           go-version: "1.24"
 
-      - name: Resolve logos-delivery commit
-        # Cache the built library keyed on the exact upstream commit, so the
-        # expensive clone + build is skipped while master's HEAD is unchanged.
-        id: logos-delivery-rev
-        run: |
-          rev=$(git ls-remote https://github.com/logos-messaging/logos-delivery.git HEAD | cut -f1)
-          echo "rev=$rev" >> "$GITHUB_OUTPUT"
+      - name: Set up Nim
+        uses: jiro4989/setup-nim-action@v2
+        with:
+          nim-version: "2.2.4"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Cache logos-delivery build
-        id: logos-delivery-cache
+      - name: Cache the built library
+        # Keyed on the .nimble, which carries the logos-delivery pin. Only the
+        # artifact is cached: a run that fails mid-resolve leaves a partial
+        # ~/.nimble/pkgcache, and restoring that makes every later run fail with
+        # "unable to read tree".
         uses: actions/cache@v4
         with:
-          path: ${{ env.LOGOS_DELIVERY_DIR }}
-          key: logos-delivery-${{ runner.os }}-${{ steps.logos-delivery-rev.outputs.rev }}
+          path: build
+          key: liblogosdelivery-${{ runner.os }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
 
-      - name: Clone logos-delivery
-        if: steps.logos-delivery-cache.outputs.cache-hit != 'true'
-        run: git clone --depth 1 https://github.com/logos-messaging/logos-delivery.git "$LOGOS_DELIVERY_DIR"
+      - name: Resolve Nim dependencies
+        run: make deps
 
       - name: Build liblogosdelivery
-        if: steps.logos-delivery-cache.outputs.cache-hit != 'true'
-        run: make -C "$LOGOS_DELIVERY_DIR" liblogosdelivery -j
+        # Via the Nimble package: the same path a consumer uses.
+        run: make liblogosdelivery
+
+      - name: Export cgo flags
+        run: |
+          dir=$(nimble path logos_delivery | tail -1)
+          echo "CGO_CFLAGS=-I$dir/library" >> "$GITHUB_ENV"
+          echo "CGO_LDFLAGS=-L$PWD/build -llogosdelivery -Wl,-rpath,$PWD/build" >> "$GITHUB_ENV"
 
       - name: go build
         run: go build ./...

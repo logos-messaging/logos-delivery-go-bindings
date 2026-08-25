@@ -1,43 +1,46 @@
-# Makefile for Waku Go Bindings
+# Makefile for the kernel bindings. The root Makefile is the usual entry point;
+# this one exists for building and testing just this package.
 
-# Path to logos-delivery submodule
-export LOGOS_DELIVERY_DIR ?= $(shell pwd)/../../vendor/logos-delivery
+NIMBLE ?= nimble
+
+# Resolved by Nimble, not vendored.
+export LOGOS_DELIVERY_DIR ?= $(shell $(NIMBLE) path logos_delivery 2>/dev/null | tail -1)
 
 # Debugging output
 print-paths:
 	@echo "LOGOS_DELIVERY_DIR: $(LOGOS_DELIVERY_DIR)"
-	@echo "HEADER_PATH: $(LIBWAKU_HEADER_PATH)"
-	@echo "LIB_PATH: $(LIBWAKU_LIB_PATH)"
+	@echo "HEADER_PATH: $(LOGOS_DELIVERY_HEADER_PATH)"
+	@echo "LIB_PATH: $(LOGOS_DELIVERY_LIB_PATH)"
 
-# Default paths for libwaku library and headers (can be overridden)
-export LIBWAKU_HEADER_PATH ?= $(LOGOS_DELIVERY_DIR)/library
-export LIBWAKU_LIB_PATH ?= $(LOGOS_DELIVERY_DIR)/build
+# Default paths for the library and headers (can be overridden)
+export LOGOS_DELIVERY_HEADER_PATH ?= $(LOGOS_DELIVERY_DIR)/library
+export LOGOS_DELIVERY_LIB_PATH ?= $(CURDIR)/../../build
 
-export CGO_CFLAGS := -I$(LIBWAKU_HEADER_PATH)/
-export CGO_LDFLAGS := -L$(LIBWAKU_LIB_PATH)/ -llogosdelivery -Wl,-rpath,$(LIBWAKU_LIB_PATH)/
+export CGO_CFLAGS := -I$(LOGOS_DELIVERY_HEADER_PATH)/
+export CGO_LDFLAGS := -L$(LOGOS_DELIVERY_LIB_PATH)/ -llogosdelivery -Wl,-rpath,$(LOGOS_DELIVERY_LIB_PATH)/
 
 # Expected files
-HEADER_FILE := $(LIBWAKU_HEADER_PATH)/liblogosdelivery.h
-LIB_FILES   := $(wildcard $(LIBWAKU_LIB_PATH)/liblogosdelivery.*)
+HEADER_FILE := $(LOGOS_DELIVERY_HEADER_PATH)/liblogosdelivery.h
+LIB_FILES   := $(wildcard $(LOGOS_DELIVERY_LIB_PATH)/liblogosdelivery.*)
 
-.PHONY: all clean prepare build test build-auto test-auto build-libwaku
+.PHONY: all clean prepare build test build-auto test-auto
 
 # Validate necessary folders and files
 check-folders:
-	@echo Checking libwaku header directory ...
-	@if [ -z "$(LIBWAKU_HEADER_PATH)" ]; then \
-		echo "ERROR: LIBWAKU_HEADER_PATH not set"; exit 1; \
+	@echo Checking header directory ...
+	@if [ -z "$(LOGOS_DELIVERY_HEADER_PATH)" ]; then \
+		echo "ERROR: LOGOS_DELIVERY_HEADER_PATH not set"; exit 1; \
 	fi
-	@if [ ! -d "$(LIBWAKU_HEADER_PATH)" ]; then \
-		echo "ERROR: Header path does not exist: $(LIBWAKU_HEADER_PATH)"; exit 1; \
+	@if [ ! -d "$(LOGOS_DELIVERY_HEADER_PATH)" ]; then \
+		echo "ERROR: Header path does not exist: $(LOGOS_DELIVERY_HEADER_PATH)"; exit 1; \
 	fi
 
-	@echo Checking libwaku lib directory ...
-	@if [ -z "$(LIBWAKU_LIB_PATH)" ]; then \
-		echo "ERROR: LIBWAKU_LIB_PATH not set"; exit 1; \
+	@echo Checking library directory ...
+	@if [ -z "$(LOGOS_DELIVERY_LIB_PATH)" ]; then \
+		echo "ERROR: LOGOS_DELIVERY_LIB_PATH not set"; exit 1; \
 	fi
-	@if [ ! -d "$(LIBWAKU_LIB_PATH)" ]; then \
-		echo "ERROR: Library path does not exist: $(LIBWAKU_LIB_PATH)"; exit 1; \
+	@if [ ! -d "$(LOGOS_DELIVERY_LIB_PATH)" ]; then \
+		echo "ERROR: Library path does not exist: $(LOGOS_DELIVERY_LIB_PATH)"; exit 1; \
 	fi
 
 	@echo Checking for liblogosdelivery.h ...
@@ -45,9 +48,9 @@ check-folders:
 		echo "ERROR: liblogosdelivery.h not found at: $(HEADER_FILE)"; exit 1; \
 	fi
 
-	@echo Checking for libwaku library file ...
+	@echo Checking for the library file ...
 	@if [ -z "$(LIB_FILES)" ]; then \
-		echo "ERROR: No libwaku library file found in: $(LIBWAKU_LIB_PATH)"; exit 1; \
+		echo "ERROR: No library file found in: $(LOGOS_DELIVERY_LIB_PATH)"; exit 1; \
 	fi
 
 build:

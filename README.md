@@ -1,6 +1,6 @@
-# logos-delivery Go Bindings
+# Logos Delivery Go Bindings
 
-Go bindings for the Waku library.
+Go bindings for Logos Delivery.
 
 ## Packages
 
@@ -15,43 +15,52 @@ Go bindings for the Waku library.
 ## Install
 
 ```
-go get -u github.com/logos-messaging/logos-delivery-go-bindings
+go get github.com/logos-messaging/logos-delivery-go-bindings
 ```
 
-## Building & Dependencies
+## Building
 
-`libwaku` (from `logos-delivery`) is required at compile-time.
+`liblogosdelivery` is required at compile time. This repository is a Nimble package declaring the
+minimum logos-delivery its C ABI works against, so a consumer picks the revision and can upgrade
+without a release here.
 
-### Building with Makefile
+```sh
+nimble setup                # resolve logos-delivery at the pinned revision
+nimble liblogosdelivery     # build it, via logos-delivery's own build task
+```
 
-If you have `logos-delivery` checked out, point the build to it:
+The library is written to logos-delivery's package directory. Set `LIBLOGOSDELIVERY_OUT` to have it
+copied somewhere of your choosing, and pass `NIM_PARAMS` for build defines — `-d:disable_rln` builds
+without zerokit, so no Rust toolchain is needed:
 
-```bash
-# path to your existing logos-delivery clone
-export LOGOS_DELIVERY_DIR=/absolute/path/to/logos-delivery
-export CGO_CFLAGS="-I${LOGOS_DELIVERY_DIR}/library"
-export CGO_LDFLAGS="-L${LOGOS_DELIVERY_DIR}/build -lwaku -Wl,-rpath,${LOGOS_DELIVERY_DIR}/build"
+```sh
+LIBLOGOSDELIVERY_OUT="$PWD/build" NIM_PARAMS="-d:disable_rln" nimble liblogosdelivery
+```
 
-# compile all packages
-make -C pkg/kernel build
+Then point cgo at the headers and the library:
 
-# run all tests
-make -C pkg/kernel test
+```sh
+export CGO_CFLAGS="-I$(nimble path logos_delivery | tail -1)/library"
+export CGO_LDFLAGS="-L$PWD/build -llogosdelivery -Wl,-rpath,$PWD/build"
 
-# run a specific test
-make -C pkg/kernel test TEST=TestConnectedPeersInfo
+go build ./...
+go test ./pkg/messaging/
 ```
 
 ## Development
 
-When working on this repository itself, `logos-delivery` is included as a git submodule for convenience.
+No clone of logos-delivery is needed: `nimble setup` fetches it at the pinned revision.
 
-- Initialize and update the submodule, then build `libwaku`
-    ```sh
-    git submodule update --init --recursive
-    make -C pkg/kernel build-libwaku
-    ```
-- Build the project. Submodule paths are used by default to find `libwaku`.
-    ```shell
-    make -C pkg/kernel build
-    ```
+To work against a local checkout instead — testing a logos-delivery change before repinning here —
+shadow the resolved package:
+
+```sh
+nimble develop /path/to/logos-delivery
+```
+
+To choose a specific revision, require it from your own `.nimble` — it satisfies the range here and
+wins resolution:
+
+```nim
+requires "https://github.com/logos-messaging/logos-delivery#<rev>"
+```

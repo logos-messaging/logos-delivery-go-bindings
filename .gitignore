@@ -38,3 +38,8 @@ third_party/
 # Kernel bindings build output
 /pkg/kernel/kernel-bindings
 /pkg/kernel/waku-bindings
+
+# Nimble
+nimble.develop
+nimble.paths
+nimbledeps
