@@ -19,7 +19,9 @@ import (
 
 // Relay is a Node's relay protocol surface: gossipsub subscriptions, publishing
 // and the state of the relay mesh. Take one with Node.Relay.
-type Relay struct{ n *Node }
+type Relay struct {
+	n *Node
+}
 
 // Subscribe joins the relay mesh for a pubsub topic. Messages received on it
 // arrive on Node.Messages.

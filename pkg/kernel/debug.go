@@ -12,7 +12,9 @@ import (
 )
 
 // Debug is a Node's own identity and health surface. Take one with Node.Debug.
-type Debug struct{ n *Node }
+type Debug struct {
+	n *Node
+}
 
 // PeerID returns the node's own peer id.
 func (d *Debug) PeerID() (peer.ID, error) {

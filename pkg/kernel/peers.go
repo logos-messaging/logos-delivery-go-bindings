@@ -18,7 +18,9 @@ import (
 
 // Peers is a Node's peer management surface: dialling, disconnecting and
 // inspecting the peer store. Take one with Node.Peers.
-type Peers struct{ n *Node }
+type Peers struct {
+	n *Node
+}
 
 // Connect dials a peer multiaddress. A ctx without a deadline gets the package
 // default of 30s.

@@ -24,11 +24,8 @@ func TestStressMemoryUsageForThreeNodes(t *testing.T) {
 	var err error
 	captureMemory(t.Name(), "start")
 	node1Cfg := DefaultWakuConfig
-	node1Cfg.TcpPort, node1Cfg.Discv5UdpPort = freeTCPPort(t), freeUDPPort(t)
 	node2Cfg := DefaultWakuConfig
-	node2Cfg.TcpPort, node2Cfg.Discv5UdpPort = freeTCPPort(t), freeUDPPort(t)
 	node3Cfg := DefaultWakuConfig
-	node3Cfg.TcpPort, node3Cfg.Discv5UdpPort = freeTCPPort(t), freeUDPPort(t)
 
 	node1, err := NewFromWakuConfig(&node1Cfg)
 	require.NoError(t, err)
@@ -351,7 +348,6 @@ func TestStress2Nodes2kIterationTearDown(t *testing.T) {
 		var nodes []*Node
 		for n := 1; n <= 2; n++ {
 			cfg := DefaultWakuConfig
-			cfg.TcpPort, cfg.Discv5UdpPort = freeTCPPort(t), freeUDPPort(t)
 			cfg.Relay = true
 			cfg.Discv5Discovery = false
 			require.NoError(t, err, "Failed to get free ports for node%d", n)

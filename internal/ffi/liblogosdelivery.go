@@ -77,9 +77,6 @@ import (
 	"unsafe"
 )
 
-// Handle is a node context owned by the C library.
-type Handle struct{ ctx unsafe.Pointer }
-
 // RetOK is the return code callbacks report on success.
 const RetOK = C.NIMFFI_RET_OK
 
@@ -231,16 +228,16 @@ func New(configJSON string) (Handle, error) {
 	// reports whether construction actually succeeded. Both are needed: the
 	// library hands back the handle immediately but fills the node in on its
 	// own thread.
-	ctx := C.cGoCreateNode(cCfg, C.uintptr_t(h))
+	handle := Handle{C.cGoCreateNode(cCfg, C.uintptr_t(h))}
 	<-p.done
 
 	if p.err != nil {
 		return Handle{}, p.err
 	}
-	if ctx == nil {
+	if !handle.Valid() {
 		return Handle{}, errors.New("logosdelivery_create_node returned no context")
 	}
-	return Handle{ctx}, nil
+	return handle, nil
 }
 
 // Start starts the node's protocols and Messaging API services.

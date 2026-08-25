@@ -81,8 +81,8 @@ func TestDoubleStart(t *testing.T) {
 		Discv5Discovery: true,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   freeUDPPort(t),
-		TcpPort:         freeTCPPort(t),
+		Discv5UdpPort:   0,
+		TcpPort:         0,
 	}
 
 	node, err := NewFromWakuConfig(&config)
@@ -106,8 +106,8 @@ func TestDoubleStop(t *testing.T) {
 		Discv5Discovery: true,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   freeUDPPort(t),
-		TcpPort:         freeTCPPort(t),
+		Discv5UdpPort:   0,
+		TcpPort:         0,
 	}
 
 	node, err := NewFromWakuConfig(&config)

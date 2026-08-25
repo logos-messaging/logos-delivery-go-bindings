@@ -11,7 +11,9 @@ import (
 )
 
 // DiscV5 is a Node's DiscV5 peer discovery surface. Take one with Node.DiscV5.
-type DiscV5 struct{ n *Node }
+type DiscV5 struct {
+	n *Node
+}
 
 // Start starts DiscV5 peer discovery.
 func (d *DiscV5) Start() error {
@@ -39,7 +41,9 @@ func (d *DiscV5) Stop() error {
 
 // PeerExchange is a Node's peer exchange protocol surface. Take one with
 // Node.PeerExchange.
-type PeerExchange struct{ n *Node }
+type PeerExchange struct {
+	n *Node
+}
 
 // Request asks peer exchange for numPeers peers and returns how many were
 // received.
@@ -57,7 +61,9 @@ func (p *PeerExchange) Request(numPeers uint64) (uint64, error) {
 
 // DNSDiscovery is a Node's DNS-based peer discovery surface. Take one with
 // Node.DNSDiscovery.
-type DNSDiscovery struct{ n *Node }
+type DNSDiscovery struct {
+	n *Node
+}
 
 // Resolve resolves an ENR tree URL and returns the multiaddresses it
 // advertises. A ctx without a deadline gets the package default of 30s.

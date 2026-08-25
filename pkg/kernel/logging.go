@@ -34,6 +34,11 @@ func logDebug(msg string, args ...interface{}) {
 	_getLogger().Debugf(msg, args...)
 }
 
+//nolint:unused // completes the level set alongside logDebug/logWarn/logError.
+func logInfo(msg string, args ...interface{}) {
+	_getLogger().Infof(msg, args...)
+}
+
 func logWarn(msg string, args ...interface{}) {
 	_getLogger().Warnf(msg, args...)
 }

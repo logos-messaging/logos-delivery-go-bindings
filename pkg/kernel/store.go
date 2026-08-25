@@ -12,7 +12,9 @@ import (
 )
 
 // Store is a Node's store protocol surface. Take one with Node.Store.
-type Store struct{ n *Node }
+type Store struct {
+	n *Node
+}
 
 // Query runs a store query against a store peer and returns its response. A
 // ctx without a deadline gets the package default of 30s.
