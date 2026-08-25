@@ -77,9 +77,6 @@ import (
 	"unsafe"
 )
 
-// Handle is an opaque pointer to a node context owned by the C library.
-type Handle = unsafe.Pointer
-
 // RetOK is the return code callbacks report on success.
 const RetOK = C.NIMFFI_RET_OK
 
@@ -231,27 +228,27 @@ func New(configJSON string) (Handle, error) {
 	// reports whether construction actually succeeded. Both are needed: the
 	// library hands back the handle immediately but fills the node in on its
 	// own thread.
-	ctx := C.cGoCreateNode(cCfg, C.uintptr_t(h))
+	handle := Handle{C.cGoCreateNode(cCfg, C.uintptr_t(h))}
 	<-p.done
 
 	if p.err != nil {
-		return nil, p.err
+		return Handle{}, p.err
 	}
-	if ctx == nil {
-		return nil, errors.New("logosdelivery_create_node returned no context")
+	if !handle.Valid() {
+		return Handle{}, errors.New("logosdelivery_create_node returned no context")
 	}
-	return Handle(ctx), nil
+	return handle, nil
 }
 
 // Start starts the node's protocols and Messaging API services.
 func Start(h Handle) error {
-	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoStartNode(h, ud) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoStartNode(h.ctx, ud) })
 	return err
 }
 
 // Stop stops the node. It can be started again.
 func Stop(h Handle) error {
-	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoStopNode(h, ud) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoStopNode(h.ctx, ud) })
 	return err
 }
 
@@ -259,7 +256,7 @@ func Stop(h Handle) error {
 // synchronous, and it also drops every event listener registered on the
 // context, so h must not be used afterwards.
 func Destroy(h Handle) error {
-	if rc := C.logosdelivery_destroy(h); rc != RetOK {
+	if rc := C.logosdelivery_destroy(h.ctx); rc != RetOK {
 		return fmt.Errorf("logosdelivery_destroy failed (code %d)", int(rc))
 	}
 	return nil
@@ -269,7 +266,7 @@ func Destroy(h Handle) error {
 func Subscribe(h Handle, contentTopic string) error {
 	cTopic := C.CString(contentTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoSubscribe(h, cTopic, ud) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoSubscribe(h.ctx, cTopic, ud) })
 	return err
 }
 
@@ -277,7 +274,7 @@ func Subscribe(h Handle, contentTopic string) error {
 func Unsubscribe(h Handle, contentTopic string) error {
 	cTopic := C.CString(contentTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoUnsubscribe(h, cTopic, ud) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoUnsubscribe(h.ctx, cTopic, ud) })
 	return err
 }
 
@@ -286,7 +283,7 @@ func Unsubscribe(h Handle, contentTopic string) error {
 func Send(h Handle, messageJSON string) (requestID string, err error) {
 	cMsg := C.CString(messageJSON)
 	defer C.free(unsafe.Pointer(cMsg))
-	return await(func(ud C.uintptr_t) C.int { return C.cGoSend(h, cMsg, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoSend(h.ctx, cMsg, ud) })
 }
 
 // listeners keeps the cgo.Handle backing each registered listener alive until
@@ -309,7 +306,7 @@ func AddEventListener(h Handle, eventName string, fn EventHandler) (ListenerID, 
 	defer C.free(unsafe.Pointer(cName))
 
 	handle := cgo.NewHandle(fn)
-	id := ListenerID(C.cGoAddEventListener(h, cName, C.uintptr_t(handle)))
+	id := ListenerID(C.cGoAddEventListener(h.ctx, cName, C.uintptr_t(handle)))
 	if id == 0 {
 		handle.Delete()
 		return 0, fmt.Errorf("failed to add %q event listener: invalid context", eventName)
@@ -331,7 +328,7 @@ func RemoveEventListener(h Handle, id ListenerID) error {
 	delete(listeners, key)
 	listenersMu.Unlock()
 
-	rc := C.logosdelivery_remove_event_listener(h, C.uint64_t(id))
+	rc := C.logosdelivery_remove_event_listener(h.ctx, C.uint64_t(id))
 	if known {
 		handle.Delete()
 	}

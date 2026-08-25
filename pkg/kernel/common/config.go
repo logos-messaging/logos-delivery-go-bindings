@@ -27,12 +27,12 @@ type WakuConfig struct {
 	Staticnodes                 []string         `json:"staticnodes,omitempty"`
 	Discv5BootstrapNodes        []string         `json:"discv5BootstrapNodes,omitempty"`
 	Discv5Discovery             bool             `json:"discv5Discovery,omitempty"`
-	Discv5UdpPort               int              `json:"discv5UdpPort,omitempty"`
+	Discv5UdpPort               int              `json:"discv5UdpPort"`
 	ClusterID                   uint16           `json:"clusterId,omitempty"`
 	Shards                      []uint16         `json:"shards,omitempty"`
 	PeerExchange                bool             `json:"peerExchange,omitempty"`
 	PeerExchangeNode            string           `json:"peerExchangeNode,omitempty"`
-	TcpPort                     int              `json:"tcpPort,omitempty"`
+	TcpPort                     int              `json:"tcpPort"`
 	RateLimits                  RateLimitsConfig `json:"rateLimits,omitempty"`
 	DnsAddrsNameServers         []string         `json:"dnsAddrsNameServers,omitempty"`
 	Discv5EnrAutoUpdate         bool             `json:"discv5EnrAutoUpdate,omitempty"`

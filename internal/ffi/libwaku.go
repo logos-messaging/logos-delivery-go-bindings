@@ -158,19 +158,19 @@ import "unsafe"
 
 // StartDiscV5 starts DiscV5 peer discovery.
 func StartDiscV5(h Handle) error {
-	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuStartDiscV5(h, ud) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuStartDiscV5(h.ctx, ud) })
 	return err
 }
 
 // StopDiscV5 stops DiscV5 peer discovery.
 func StopDiscV5(h Handle) error {
-	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuStopDiscV5(h, ud) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuStopDiscV5(h.ctx, ud) })
 	return err
 }
 
 // Version returns the library version string.
 func Version(h Handle) (string, error) {
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuVersion(h, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuVersion(h.ctx, ud) })
 }
 
 // RelayPublish publishes a WakuMessage JSON on a pubsub topic and returns
@@ -181,7 +181,7 @@ func RelayPublish(h Handle, pubsubTopic, messageJSON string, timeoutMs int) (str
 	defer C.free(unsafe.Pointer(cTopic))
 	defer C.free(unsafe.Pointer(cMsg))
 	return await(func(ud C.uintptr_t) C.int {
-		return C.cGoWakuRelayPublish(h, cTopic, cMsg, C.uint32_t(timeoutMs), ud)
+		return C.cGoWakuRelayPublish(h.ctx, cTopic, cMsg, C.uint32_t(timeoutMs), ud)
 	})
 }
 
@@ -189,7 +189,7 @@ func RelayPublish(h Handle, pubsubTopic, messageJSON string, timeoutMs int) (str
 func RelaySubscribe(h Handle, pubsubTopic string) error {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuRelaySubscribe(h, cTopic, ud) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuRelaySubscribe(h.ctx, cTopic, ud) })
 	return err
 }
 
@@ -199,7 +199,7 @@ func RelayAddProtectedShard(h Handle, clusterID, shardID int, publicKeyHex strin
 	cPublicKey := C.CString(publicKeyHex)
 	defer C.free(unsafe.Pointer(cPublicKey))
 	_, err := await(func(ud C.uintptr_t) C.int {
-		return C.cGoWakuRelayAddProtectedShard(h, C.uint16_t(clusterID), C.uint16_t(shardID), cPublicKey, ud)
+		return C.cGoWakuRelayAddProtectedShard(h.ctx, C.uint16_t(clusterID), C.uint16_t(shardID), cPublicKey, ud)
 	})
 	return err
 }
@@ -208,7 +208,7 @@ func RelayAddProtectedShard(h Handle, clusterID, shardID int, publicKeyHex strin
 func RelayUnsubscribe(h Handle, pubsubTopic string) error {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuRelayUnsubscribe(h, cTopic, ud) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuRelayUnsubscribe(h.ctx, cTopic, ud) })
 	return err
 }
 
@@ -216,7 +216,7 @@ func RelayUnsubscribe(h Handle, pubsubTopic string) error {
 func Connect(h Handle, peerMultiAddr string, timeoutMs int) error {
 	cAddr := C.CString(peerMultiAddr)
 	defer C.free(unsafe.Pointer(cAddr))
-	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuConnect(h, cAddr, C.uint32_t(timeoutMs), ud) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuConnect(h.ctx, cAddr, C.uint32_t(timeoutMs), ud) })
 	return err
 }
 
@@ -227,7 +227,7 @@ func DialPeer(h Handle, peerMultiAddr, protocol string, timeoutMs int) error {
 	defer C.free(unsafe.Pointer(cAddr))
 	defer C.free(unsafe.Pointer(cProtocol))
 	_, err := await(func(ud C.uintptr_t) C.int {
-		return C.cGoWakuDialPeer(h, cAddr, cProtocol, C.uint32_t(timeoutMs), ud)
+		return C.cGoWakuDialPeer(h.ctx, cAddr, cProtocol, C.uint32_t(timeoutMs), ud)
 	})
 	return err
 }
@@ -239,7 +239,7 @@ func DialPeerByID(h Handle, peerID, protocol string, timeoutMs int) error {
 	defer C.free(unsafe.Pointer(cPeerID))
 	defer C.free(unsafe.Pointer(cProtocol))
 	_, err := await(func(ud C.uintptr_t) C.int {
-		return C.cGoWakuDialPeerById(h, cPeerID, cProtocol, C.uint32_t(timeoutMs), ud)
+		return C.cGoWakuDialPeerById(h.ctx, cPeerID, cProtocol, C.uint32_t(timeoutMs), ud)
 	})
 	return err
 }
@@ -248,30 +248,30 @@ func DialPeerByID(h Handle, peerID, protocol string, timeoutMs int) error {
 func DisconnectPeerByID(h Handle, peerID string) error {
 	cPeerID := C.CString(peerID)
 	defer C.free(unsafe.Pointer(cPeerID))
-	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuDisconnectPeerById(h, cPeerID, ud) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuDisconnectPeerById(h.ctx, cPeerID, ud) })
 	return err
 }
 
 // DisconnectAllPeers drops all peer connections.
 func DisconnectAllPeers(h Handle) error {
-	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuDisconnectAllPeers(h, ud) })
+	_, err := await(func(ud C.uintptr_t) C.int { return C.cGoWakuDisconnectAllPeers(h.ctx, ud) })
 	return err
 }
 
 // ListenAddresses returns the node's listen multiaddresses as a
 // comma-separated list.
 func ListenAddresses(h Handle) (string, error) {
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuListenAddresses(h, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuListenAddresses(h.ctx, ud) })
 }
 
 // GetMyENR returns the node's ENR record.
 func GetMyENR(h Handle) (string, error) {
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetMyENR(h, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetMyENR(h.ctx, ud) })
 }
 
 // GetMyPeerID returns the node's peer id.
 func GetMyPeerID(h Handle) (string, error) {
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetMyPeerId(h, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetMyPeerId(h.ctx, ud) })
 }
 
 // PingPeer pings a peer (comma-separated multiaddresses) and returns the
@@ -279,7 +279,7 @@ func GetMyPeerID(h Handle) (string, error) {
 func PingPeer(h Handle, peerAddrs string, timeoutMs int) (string, error) {
 	cAddr := C.CString(peerAddrs)
 	defer C.free(unsafe.Pointer(cAddr))
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuPingPeer(h, cAddr, C.uint32_t(timeoutMs), ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuPingPeer(h.ctx, cAddr, C.uint32_t(timeoutMs), ud) })
 }
 
 // GetPeersInMesh returns the relay mesh peer ids for a pubsub topic as a
@@ -287,14 +287,14 @@ func PingPeer(h Handle, peerAddrs string, timeoutMs int) (string, error) {
 func GetPeersInMesh(h Handle, pubsubTopic string) (string, error) {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetPeersInMesh(h, cTopic, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetPeersInMesh(h.ctx, cTopic, ud) })
 }
 
 // GetNumPeersInMesh returns the relay mesh peer count for a pubsub topic.
 func GetNumPeersInMesh(h Handle, pubsubTopic string) (string, error) {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetNumPeersInMesh(h, cTopic, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetNumPeersInMesh(h.ctx, cTopic, ud) })
 }
 
 // GetNumConnectedRelayPeers returns the connected relay peer count for a
@@ -302,7 +302,7 @@ func GetNumPeersInMesh(h Handle, pubsubTopic string) (string, error) {
 func GetNumConnectedRelayPeers(h Handle, pubsubTopic string) (string, error) {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetNumConnectedRelayPeers(h, cTopic, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetNumConnectedRelayPeers(h.ctx, cTopic, ud) })
 }
 
 // GetConnectedRelayPeers returns the connected relay peer ids for a pubsub
@@ -310,24 +310,24 @@ func GetNumConnectedRelayPeers(h Handle, pubsubTopic string) (string, error) {
 func GetConnectedRelayPeers(h Handle, pubsubTopic string) (string, error) {
 	cTopic := C.CString(pubsubTopic)
 	defer C.free(unsafe.Pointer(cTopic))
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetConnectedRelayPeers(h, cTopic, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetConnectedRelayPeers(h.ctx, cTopic, ud) })
 }
 
 // GetConnectedPeers returns the connected peer ids as a comma-separated
 // list.
 func GetConnectedPeers(h Handle) (string, error) {
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetConnectedPeers(h, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetConnectedPeers(h.ctx, ud) })
 }
 
 // GetPeerIDsFromPeerStore returns the peer-store peer ids as a
 // comma-separated list.
 func GetPeerIDsFromPeerStore(h Handle) (string, error) {
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetPeerIdsFromPeerStore(h, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetPeerIdsFromPeerStore(h.ctx, ud) })
 }
 
 // GetConnectedPeersInfo returns the connected peers' info as JSON.
 func GetConnectedPeersInfo(h Handle) (string, error) {
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetConnectedPeersInfo(h, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetConnectedPeersInfo(h.ctx, ud) })
 }
 
 // StoreQuery runs a store query (JSON) against a peer (comma-separated
@@ -338,14 +338,14 @@ func StoreQuery(h Handle, queryJSON, peerAddrs string, timeoutMs int) (string, e
 	defer C.free(unsafe.Pointer(cQuery))
 	defer C.free(unsafe.Pointer(cAddr))
 	return await(func(ud C.uintptr_t) C.int {
-		return C.cGoWakuStoreQuery(h, cQuery, cAddr, C.int32_t(timeoutMs), ud)
+		return C.cGoWakuStoreQuery(h.ctx, cQuery, cAddr, C.int32_t(timeoutMs), ud)
 	})
 }
 
 // PeerExchangeRequest asks peer exchange for numPeers peers and returns
 // the number of received peers.
 func PeerExchangeRequest(h Handle, numPeers uint64) (string, error) {
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuPeerExchangeQuery(h, C.uint64_t(numPeers), ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuPeerExchangeQuery(h.ctx, C.uint64_t(numPeers), ud) })
 }
 
 // GetPeerIDsByProtocol returns the peer ids supporting a protocol as a
@@ -353,7 +353,7 @@ func PeerExchangeRequest(h Handle, numPeers uint64) (string, error) {
 func GetPeerIDsByProtocol(h Handle, protocol string) (string, error) {
 	cProtocol := C.CString(protocol)
 	defer C.free(unsafe.Pointer(cProtocol))
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetPeerIdsByProtocol(h, cProtocol, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetPeerIdsByProtocol(h.ctx, cProtocol, ud) })
 }
 
 // DnsDiscovery resolves an ENR tree URL via DNS discovery and returns the
@@ -364,16 +364,16 @@ func DnsDiscovery(h Handle, enrTreeURL, nameDNSServer string, timeoutMs int) (st
 	defer C.free(unsafe.Pointer(cEnrTree))
 	defer C.free(unsafe.Pointer(cDNSServer))
 	return await(func(ud C.uintptr_t) C.int {
-		return C.cGoWakuDnsDiscovery(h, cEnrTree, cDNSServer, C.int32_t(timeoutMs), ud)
+		return C.cGoWakuDnsDiscovery(h.ctx, cEnrTree, cDNSServer, C.int32_t(timeoutMs), ud)
 	})
 }
 
 // IsOnline reports the node's online state ("true"/"false").
 func IsOnline(h Handle) (string, error) {
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuIsOnline(h, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuIsOnline(h.ctx, ud) })
 }
 
 // GetMetrics returns the node's metrics in Prometheus text format.
 func GetMetrics(h Handle) (string, error) {
-	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetMetrics(h, ud) })
+	return await(func(ud C.uintptr_t) C.int { return C.cGoWakuGetMetrics(h.ctx, ud) })
 }
