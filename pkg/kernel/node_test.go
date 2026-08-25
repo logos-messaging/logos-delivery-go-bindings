@@ -198,8 +198,8 @@ func TestPeerExchange(t *testing.T) {
 		ClusterID:       16,
 		Shards:          []uint16{64},
 		PeerExchange:    false,
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 
 	discV5Node, err := NewFromWakuConfig(&discV5NodeWakuConfig)
@@ -220,9 +220,9 @@ func TestPeerExchange(t *testing.T) {
 		ClusterID:            16,
 		Shards:               []uint16{64},
 		PeerExchange:         true,
-		Discv5UdpPort:        0,
+		Discv5UdpPort:        freeUDPPort(t),
 		Discv5BootstrapNodes: []string{discv5NodeEnr.String()},
-		TcpPort:              0,
+		TcpPort:              freeTCPPort(t),
 	}
 
 	pxServerNode, err := NewFromWakuConfig(&pxServerWakuConfig)
@@ -266,8 +266,8 @@ func TestPeerExchange(t *testing.T) {
 		ClusterID:        16,
 		Shards:           []uint16{64},
 		PeerExchange:     true,
-		Discv5UdpPort:    0,
-		TcpPort:          0,
+		Discv5UdpPort:    freeUDPPort(t),
+		TcpPort:          freeTCPPort(t),
 		PeerExchangeNode: serverNodeMa[0].String(),
 	}
 
@@ -322,8 +322,8 @@ func TestDnsDiscover(t *testing.T) {
 		LogLevel:      "DEBUG",
 		ClusterID:     16,
 		Shards:        []uint16{64},
-		Discv5UdpPort: 0,
-		TcpPort:       0,
+		Discv5UdpPort: freeUDPPort(t),
+		TcpPort:       freeTCPPort(t),
 	}
 
 	node, err := NewFromWakuConfig(&nodeWakuConfig)
@@ -350,8 +350,8 @@ func TestDial(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 
 	dialerNode, err := NewFromWakuConfig(&dialerNodeWakuConfig)
@@ -365,8 +365,8 @@ func TestDial(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 
 	receiverNode, err := NewFromWakuConfig(&receiverNodeWakuConfig)
@@ -411,8 +411,8 @@ func TestRelay(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 
 	senderNode, err := NewFromWakuConfig(&senderNodeWakuConfig)
@@ -426,8 +426,8 @@ func TestRelay(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 	receiverNode, err := NewFromWakuConfig(&receiverNodeWakuConfig)
 	require.NoError(t, err)
@@ -490,8 +490,8 @@ func TestTopicHealth(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 
 	node1, err := NewFromWakuConfig(&wakuConfig1)
@@ -505,8 +505,8 @@ func TestTopicHealth(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 	node2, err := NewFromWakuConfig(&wakuConfig2)
 	require.NoError(t, err)
@@ -558,8 +558,8 @@ func TestConnectionChange(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 
 	node1, err := NewFromWakuConfig(&wakuConfig1)
@@ -573,8 +573,8 @@ func TestConnectionChange(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 	node2, err := NewFromWakuConfig(&wakuConfig2)
 	require.NoError(t, err)
@@ -641,8 +641,8 @@ func TestStore(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 
 	senderNode, err := NewFromWakuConfig(&senderNodeWakuConfig)
@@ -657,8 +657,8 @@ func TestStore(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 	receiverNode, err := NewFromWakuConfig(&receiverNodeWakuConfig)
 	require.NoError(t, err)
@@ -816,8 +816,8 @@ func TestParallelPings(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 
 	dialerNode, err := NewFromWakuConfig(&dialerNodeWakuConfig)
@@ -830,8 +830,8 @@ func TestParallelPings(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 
 	receiverNode1, err := NewFromWakuConfig(&receiverNodeWakuConfig1)
@@ -848,8 +848,8 @@ func TestParallelPings(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 
 	receiverNode2, err := NewFromWakuConfig(&receiverNodeWakuConfig2)
@@ -866,8 +866,8 @@ func TestParallelPings(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 
 	receiverNode3, err := NewFromWakuConfig(&receiverNodeWakuConfig3)
@@ -933,8 +933,8 @@ func TestOnline(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 
 	node1, err := NewFromWakuConfig(&wakuConfig1)
@@ -948,8 +948,8 @@ func TestOnline(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 	node2, err := NewFromWakuConfig(&wakuConfig2)
 	require.NoError(t, err)
@@ -995,8 +995,8 @@ func TestDisconnectAllPeers(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 
 	node1, err := NewFromWakuConfig(&wakuConfig1)
@@ -1011,8 +1011,8 @@ func TestDisconnectAllPeers(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 	node2, err := NewFromWakuConfig(&wakuConfig2)
 	require.NoError(t, err)
@@ -1030,8 +1030,8 @@ func TestDisconnectAllPeers(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 	node3, err := NewFromWakuConfig(&wakuConfig3)
 	require.NoError(t, err)
@@ -1049,8 +1049,8 @@ func TestDisconnectAllPeers(t *testing.T) {
 		Discv5Discovery: false,
 		ClusterID:       clusterId,
 		Shards:          []uint16{shardId},
-		Discv5UdpPort:   0,
-		TcpPort:         0,
+		Discv5UdpPort:   freeUDPPort(t),
+		TcpPort:         freeTCPPort(t),
 	}
 	node4, err := NewFromWakuConfig(&wakuConfig4)
 	require.NoError(t, err)
