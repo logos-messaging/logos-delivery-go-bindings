@@ -66,9 +66,6 @@ func TestStoreQuery3Nodes(t *testing.T) {
 	msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
 	require.NoError(t, err, "Failed to publish message from Node1")
 
-	Debug("Waiting for message delivery to Node2")
-	time.Sleep(2 * time.Second)
-
 	Debug("Verifying that Node2 received the message")
 	err = node2.VerifyMessageReceived(message, msgHash)
 	require.NoError(t, err, "Node2 should have received the message")
@@ -1045,9 +1042,7 @@ func TestStoredMessagesWithDifferentPubsubTopics(t *testing.T) {
 	for _, pubsubTopic := range PUBSUB_TOPICS_STORE {
 
 		Debug("Node1 is publishing message on pubsub topic: %s", pubsubTopic)
-		node1.RelaySubscribe(pubsubTopic)
-		node2.RelaySubscribe(pubsubTopic)
-		time.Sleep(time.Second * 2)
+		subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, pubsubTopic)
 		queryTimestamp := proto.Int64(time.Now().UnixNano())
 		var msg = node1.CreateMessage()
 		msgHash, err := node1.RelayPublishNoCTX(pubsubTopic, msg)

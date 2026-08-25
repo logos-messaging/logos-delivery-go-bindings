@@ -183,11 +183,7 @@ func ConnectAllPeers(nodes []*WakuNode) error {
 		return errors.New("node list is empty")
 	}
 
-	timeout := time.Duration(len(nodes)*2) * time.Second
-	Debug("Connecting nodes in a relay chain with timeout: %v", timeout)
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	Debug("Connecting nodes in a relay chain")
 
 	for i := 0; i < len(nodes)-1; i++ {
 		Debug("Connecting node %d to node %d", i, i+1)
@@ -198,7 +194,11 @@ func ConnectAllPeers(nodes []*WakuNode) error {
 		}
 	}
 
-	<-ctx.Done()
+	if err := WaitForAutoConnection(nodes); err != nil {
+		Error("Connections did not stabilize: %v", err)
+		return err
+	}
+
 	Debug("Connections stabilized")
 	return nil
 }

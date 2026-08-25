@@ -261,7 +261,7 @@ func TestDiscv5PeerMeshCount(t *testing.T) {
 	Debug("Waiting for nodes to auto-connect via Discv5")
 	err = WaitForAutoConnection([]*WakuNode{node1, node2, node3})
 	require.NoError(t, err, "Nodes did not auto-connect within timeout")
-	time.Sleep(time.Second * 5)
+	node1.waitForMeshPeerCount(t, defaultPubsubTopic, 2)
 
 	Debug("Fetching number of peers in mesh for Node1 before stopping Node3")
 	peerCountBefore, err := node1.GetNumPeersInMesh(defaultPubsubTopic)
@@ -274,7 +274,7 @@ func TestDiscv5PeerMeshCount(t *testing.T) {
 	node3.StopAndDestroy()
 
 	Debug("Waiting for network update after Node3 stops")
-	time.Sleep(10 * time.Second)
+	node1.waitForMeshPeerCount(t, defaultPubsubTopic, 1)
 
 	Debug("Fetching number of peers in mesh for Node1 after stopping Node3")
 	peerCountAfter, err := node1.GetNumPeersInMesh(defaultPubsubTopic)
@@ -334,6 +334,7 @@ func TestDiscv5PeerMeshIds(t *testing.T) {
 	Debug("Waiting for nodes to auto-connect via Discv5")
 	err = WaitForAutoConnection([]*WakuNode{node1, node2, node3})
 	require.NoError(t, err, "Nodes did not auto-connect within timeout")
+	node1.waitForMeshPeerCount(t, defaultPubsubTopic, 2)
 
 	Debug("Fetching number of peers in mesh for Node1 before stopping Node3")
 	peersBefore, err := node1.GetPeersInMesh(defaultPubsubTopic)
@@ -348,7 +349,7 @@ func TestDiscv5PeerMeshIds(t *testing.T) {
 	node3.StopAndDestroy()
 
 	Debug("Waiting for network update after Node3 stops")
-	time.Sleep(10 * time.Second)
+	node1.waitForMeshPeerCount(t, defaultPubsubTopic, 1)
 
 	Debug("Fetching number of peers in mesh for Node1 after stopping Node3")
 	peersAfter, err := node1.GetPeersInMesh(defaultPubsubTopic)
@@ -387,7 +388,7 @@ func TestDiscv5DisabledNoPeersConnected(t *testing.T) {
 	}()
 
 	Debug("Waiting to ensure no auto-connection")
-	time.Sleep(15 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	Debug("Verifying number of peers connected to Nodes")
 	peerCount, err := node1.GetNumConnectedPeers()

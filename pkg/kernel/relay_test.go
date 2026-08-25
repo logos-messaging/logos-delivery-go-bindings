@@ -262,9 +262,6 @@ func TestRelayMessageBroadcast(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, msgHash)
 
-	Debug("Waiting to ensure message delivery")
-	time.Sleep(3 * time.Second)
-
 	Debug("Verifying message reception for each node")
 	for i, node := range nodes {
 		Debug("Verifying message for node %s", nodeNames[i])
@@ -533,8 +530,7 @@ func TestRelayDisabledNodeDoesNotReceiveMessages(t *testing.T) {
 	defaultPubsubTopic := DefaultPubsubTopic
 	Debug("Default pubsub topic retrieved: %s", defaultPubsubTopic)
 
-	err = SubscribeNodesToTopic([]*WakuNode{node1, node2}, defaultPubsubTopic)
-	require.NoError(t, err, "Failed to subscribe nodes to the topic")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, defaultPubsubTopic)
 
 	Debug("Waiting for nodes to auto-connect via Discv5")
 	err = WaitForAutoConnection([]*WakuNode{node1, node2})
@@ -544,9 +540,6 @@ func TestRelayDisabledNodeDoesNotReceiveMessages(t *testing.T) {
 	message := node1.CreateMessage()
 	msgHash, err := node1.RelayPublishNoCTX(defaultPubsubTopic, message)
 	require.NoError(t, err, "Failed to publish message from Node1")
-
-	Debug("Waiting to ensure message delivery")
-	time.Sleep(3 * time.Second)
 
 	Debug("Verifying that Node2 received the message")
 	err = node2.VerifyMessageReceived(message, msgHash)
@@ -589,8 +582,7 @@ func TestPublishWithLargePayload(t *testing.T) {
 	defaultPubsubTopic := DefaultPubsubTopic
 	Debug("Default pubsub topic retrieved: %s", defaultPubsubTopic)
 
-	err = SubscribeNodesToTopic([]*WakuNode{node1, node2}, defaultPubsubTopic)
-	require.NoError(t, err, "Failed to subscribe nodes to the topic")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, defaultPubsubTopic)
 
 	Debug("Waiting for nodes to auto-connect via Discv5")
 	err = WaitForAutoConnection([]*WakuNode{node1, node2})
@@ -613,9 +605,6 @@ func TestPublishWithLargePayload(t *testing.T) {
 	Debug("Publishing message from Node1 with large payload")
 	msgHash, err := node1.RelayPublishNoCTX(defaultPubsubTopic, message)
 	require.NoError(t, err, "Failed to publish message from Node1")
-
-	Debug("Waiting to ensure message propagation")
-	time.Sleep(2 * time.Second)
 
 	Debug("Verifying that Node2 received the message")
 	err = node2.VerifyMessageReceived(message, msgHash)
