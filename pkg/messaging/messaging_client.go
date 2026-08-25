@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/logos-messaging/logos-delivery-go-bindings/internal/ffi"
+	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel"
 )
 
 // eventBufferSize bounds the buffered Events channel. Events are dropped rather
@@ -16,63 +16,79 @@ import (
 // never stalled by a slow reader.
 const eventBufferSize = 1024
 
-// ErrClosed is returned by operations on a MessagingClient that has been
+// ErrClosed is returned by operations on a MessagingClient whose node has been
 // closed.
-var ErrClosed = errors.New("messaging: client is closed")
+var ErrClosed = kernel.ErrClosed
 
 // MessagingClient is a logos-delivery Messaging API client, mirroring the Nim
-// MessagingClient: it owns a node and exposes the messaging surface over it —
+// MessagingClient: it drives a node and exposes the messaging surface over it —
 // subscribe, unsubscribe, send, and a stream of delivery events.
+//
+// The node is reached through Node, so the kernel protocols run against the
+// same node the client sends on.
 //
 // The lifecycle is New -> Start -> ... -> Stop -> Close. Consume Events()
 // concurrently for the whole lifetime; it is closed by Close.
 //
 // A MessagingClient is safe for concurrent use.
 type MessagingClient struct {
-	h ffi.Handle
+	node *kernel.Node
+	h    ffi.Handle
 
 	events chan Event
 
 	// mu guards closed and serialises it against the event callbacks, which
 	// run on the library's event thread. It is only ever held briefly.
-	mu        sync.RWMutex
-	closed    bool
-	listeners []ffi.ListenerID
+	mu     sync.RWMutex
+	closed bool
 }
 
 // New creates a node from cfg and wires up its event stream. The node is not
 // started yet: call Start. Release it with Close, started or not.
 func New(cfg Config) (*MessagingClient, error) {
-	cfgJSON, err := json.Marshal(cfg)
+	node, err := kernel.New(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("messaging: marshal config: %w", err)
+		return nil, err
+	}
+	return Attach(node)
+}
+
+// Attach adds the Messaging API event stream to an existing node, for a caller
+// that built the node itself. The client takes over the node's lifetime:
+// closing either one closes both.
+func Attach(node *kernel.Node) (*MessagingClient, error) {
+	c := &MessagingClient{
+		node:   node,
+		h:      kernel.Handle(node),
+		events: make(chan Event, eventBufferSize),
 	}
 
-	h, err := ffi.New(string(cfgJSON))
-	if err != nil {
-		return nil, fmt.Errorf("messaging: create node: %w", err)
-	}
-
-	c := &MessagingClient{h: h, events: make(chan Event, eventBufferSize)}
+	// Runs after the node drops its listeners, so nothing sends afterwards.
+	node.OnClose(func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		c.closed = true
+		close(c.events)
+	})
 
 	// Register before Start so no event emitted during startup is missed.
 	for _, name := range messagingEvents() {
-		id, err := ffi.AddEventListener(h, name, c.onEvent)
-		if err != nil {
-			_ = c.Close()
-			return nil, fmt.Errorf("messaging: %w", err)
+		if _, err := node.AddEventListener(name, c.onEvent); err != nil {
+			_ = node.Close()
+			return nil, err
 		}
-		c.listeners = append(c.listeners, id)
 	}
 	return c, nil
 }
 
+// Node returns the node this client drives, so the kernel protocols can be
+// used against it. Its lifetime is the client's: Close either one and both are
+// done.
+func (c *MessagingClient) Node() *kernel.Node { return c.node }
+
 // onEvent runs on the library's event thread. It must not block, so a decoded
 // event is dropped when the Events channel is full.
-func (c *MessagingClient) onEvent(ret int, msg string) {
-	if ret != ffi.RetOK {
-		return
-	}
+func (c *MessagingClient) onEvent(msg string) {
 	ev, err := decodeEvent(msg)
 	if err != nil || ev == nil {
 		return
@@ -96,60 +112,16 @@ func (c *MessagingClient) onEvent(ret int, msg string) {
 func (c *MessagingClient) Events() <-chan Event { return c.events }
 
 // Start starts the node's protocols and Messaging API services.
-func (c *MessagingClient) Start() error {
-	if err := c.check(); err != nil {
-		return err
-	}
-	if err := ffi.Start(c.h); err != nil {
-		return fmt.Errorf("messaging: start: %w", err)
-	}
-	return nil
-}
+func (c *MessagingClient) Start() error { return c.node.Start() }
 
 // Stop stops the node. A stopped client can be started again.
-func (c *MessagingClient) Stop() error {
-	if err := c.check(); err != nil {
-		return err
-	}
-	if err := ffi.Stop(c.h); err != nil {
-		return fmt.Errorf("messaging: stop: %w", err)
-	}
-	return nil
-}
+func (c *MessagingClient) Stop() error { return c.node.Stop() }
 
 // Close releases the node and closes the Events channel. It is idempotent, and
 // tears a running node down, so Stop beforehand is optional. The client must
 // not be used afterwards, and no other method may be in flight when it is
 // called.
-func (c *MessagingClient) Close() error {
-	c.mu.Lock()
-	if c.closed {
-		c.mu.Unlock()
-		return nil
-	}
-	c.closed = true
-	listeners := c.listeners
-	c.listeners = nil
-	c.mu.Unlock()
-
-	// Drop the listeners before the context goes away, so no callback can
-	// arrive after the channel is closed.
-	var errs []error
-	for _, id := range listeners {
-		if err := ffi.RemoveEventListener(c.h, id); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if err := ffi.Destroy(c.h); err != nil {
-		errs = append(errs, err)
-	}
-	close(c.events)
-
-	if len(errs) > 0 {
-		return fmt.Errorf("messaging: close: %w", errors.Join(errs...))
-	}
-	return nil
-}
+func (c *MessagingClient) Close() error { return c.node.Close() }
 
 // Subscribe starts receiving messages published on a content topic. They arrive
 // as MessageReceivedEvent on Events().

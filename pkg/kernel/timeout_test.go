@@ -6,21 +6,21 @@ import (
 	"time"
 )
 
-func TestContextTimeoutFallsBackToRequestTimeout(t *testing.T) {
-	if got, want := getContextTimeoutMilliseconds(context.Background()),
+func TestTimeoutMillisFallsBackToRequestTimeout(t *testing.T) {
+	if got, want := timeoutMillis(context.Background(), requestTimeout),
 		int(requestTimeout.Milliseconds()); got != want {
-		t.Errorf("getContextTimeoutMilliseconds(Background) = %d, want %d", got, want)
+		t.Errorf("timeoutMillis(Background) = %d, want %d", got, want)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	if got := getContextTimeoutMilliseconds(ctx); got <= 0 || got > 60_000 {
-		t.Errorf("getContextTimeoutMilliseconds(1m) = %d, want (0, 60000]", got)
+	if got := timeoutMillis(ctx, requestTimeout); got <= 0 || got > 60_000 {
+		t.Errorf("timeoutMillis(1m) = %d, want (0, 60000]", got)
 	}
 
 	expired, cancelExpired := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
 	defer cancelExpired()
-	if got := getContextTimeoutMilliseconds(expired); got != 0 {
-		t.Errorf("getContextTimeoutMilliseconds(expired) = %d, want 0", got)
+	if got := timeoutMillis(expired, requestTimeout); got != 0 {
+		t.Errorf("timeoutMillis(expired, requestTimeout) = %d, want 0", got)
 	}
 }
