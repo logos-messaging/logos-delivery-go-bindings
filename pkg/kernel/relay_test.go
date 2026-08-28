@@ -56,7 +56,7 @@ func TestVerifyNumConnectedRelayPeers(t *testing.T) {
 		t.Fatalf("Expected 2 connected peers on node1, but got %d", len(connectedPeersNode1))
 	}
 
-	require.NoError(t, SubscribeAndWaitForMesh([]*WakuNode{node1, node2}, DefaultPubsubTopic))
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
 
 	numRelayPeers, err := node1.GetNumConnectedRelayPeers()
 	if err != nil {
@@ -140,8 +140,8 @@ func TestVerifyConnectedRelayPeers(t *testing.T) {
 	require.NoError(t, node1.RelaySubscribe(customPubsubTopic))
 	require.NoError(t, node2.RelaySubscribe(DefaultPubsubTopic))
 	require.NoError(t, node4.RelaySubscribe(customPubsubTopic))
-	require.NoError(t, WaitForRelayMesh([]*WakuNode{node1, node2}, DefaultPubsubTopic, 1))
-	require.NoError(t, WaitForRelayMesh([]*WakuNode{node1, node4}, customPubsubTopic, 1))
+	waitForRelayMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic, 1)
+	waitForRelayMesh(t, []*WakuNode{node1, node4}, customPubsubTopic, 1)
 
 	relayPeers, err := node1.GetConnectedRelayPeers()
 	if err != nil {
@@ -202,7 +202,7 @@ func TestRelayMessageTransmission(t *testing.T) {
 	err = WaitForAutoConnection([]*WakuNode{senderNode, receiverNode})
 	require.NoError(t, err, "Nodes did not auto-connect within timeout")
 
-	require.NoError(t, SubscribeAndWaitForMesh([]*WakuNode{senderNode, receiverNode}, DefaultPubsubTopic))
+	subscribeAndWaitForMesh(t, []*WakuNode{senderNode, receiverNode}, DefaultPubsubTopic)
 
 	Debug("Creating and publishing message")
 	message := senderNode.CreateMessage()
@@ -253,7 +253,7 @@ func TestRelayMessageBroadcast(t *testing.T) {
 	}
 
 	require.NoError(t, WaitForAutoConnection(nodes))
-	require.NoError(t, SubscribeAndWaitForMesh(nodes, defaultPubsubTopic))
+	subscribeAndWaitForMesh(t, nodes, defaultPubsubTopic)
 
 	senderNode := nodes[0]
 	Debug("SenderNode is publishing a message")
@@ -365,7 +365,7 @@ func TestRelayNodesNotConnectedDirectly(t *testing.T) {
 	err = WaitForAutoConnection([]*WakuNode{senderNode, node2, node3})
 	require.NoError(t, err, "Nodes did not connect within timeout")
 
-	require.NoError(t, SubscribeAndWaitForMesh([]*WakuNode{senderNode, node2, node3}, DefaultPubsubTopic))
+	subscribeAndWaitForMesh(t, []*WakuNode{senderNode, node2, node3}, DefaultPubsubTopic)
 
 	Debug("SenderNode is publishing a message")
 	message := senderNode.CreateMessage()

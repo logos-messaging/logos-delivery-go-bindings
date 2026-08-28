@@ -444,7 +444,7 @@ func TestRelay(t *testing.T) {
 	}
 	// send message
 	pubsubTopic := FormatWakuRelayTopic(senderNodeWakuConfig.ClusterID, senderNodeWakuConfig.Shards[0])
-	require.NoError(t, SubscribeAndWaitForMesh([]*WakuNode{senderNode, receiverNode}, pubsubTopic))
+	subscribeAndWaitForMesh(t, []*WakuNode{senderNode, receiverNode}, pubsubTopic)
 
 	ctx2, cancel2 := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel2()
@@ -515,7 +515,7 @@ func TestTopicHealth(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, peerCount2 == 1, "node2 should have 1 peer")
 
-	require.NoError(t, SubscribeAndWaitForMesh([]*WakuNode{node1, node2}, FormatWakuRelayTopic(clusterId, shardId)))
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, FormatWakuRelayTopic(clusterId, shardId))
 
 	// Wait to receive topic health update
 	select {
@@ -585,16 +585,14 @@ func TestConnectionChange(t *testing.T) {
 	peerId1, err := node1.PeerID()
 	require.NoError(t, err)
 
-	joined, err := node2.WaitForConnectionChange("EventConnected", 10*time.Second)
-	require.NoError(t, err, "connectionChange EventConnected event should be emitted")
+	joined := node2.waitForConnectionChange(t, "EventConnected", 10*time.Second)
 	require.Equal(t, peerId1, joined.PeerId, "connectionChange event should contain node 1's peerId")
 
 	// Disconnect from node1
 	err = node2.DisconnectPeerByID(peerId1)
 	require.NoError(t, err)
 
-	left, err := node2.WaitForConnectionChange("EventDisconnected", 10*time.Second)
-	require.NoError(t, err, "connectionChange EventDisconnected event should be emitted")
+	left := node2.waitForConnectionChange(t, "EventDisconnected", 10*time.Second)
 	require.Equal(t, peerId1, left.PeerId, "connectionChange event should contain node 1's peerId")
 
 	// Stop nodes
@@ -657,7 +655,7 @@ func TestStore(t *testing.T) {
 	timeStart := proto.Int64(time.Now().UnixNano())
 	hashes := []common.MessageHash{}
 	pubsubTopic := FormatWakuRelayTopic(senderNodeWakuConfig.ClusterID, senderNodeWakuConfig.Shards[0])
-	require.NoError(t, SubscribeAndWaitForMesh([]*WakuNode{senderNode, receiverNode}, pubsubTopic))
+	subscribeAndWaitForMesh(t, []*WakuNode{senderNode, receiverNode}, pubsubTopic)
 
 	for i := 0; i < numMessages; i++ {
 		message := &pb.WakuMessage{
