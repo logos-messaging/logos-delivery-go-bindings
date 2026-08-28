@@ -199,8 +199,7 @@ func TestRelayMessageTransmission(t *testing.T) {
 	defer receiverNode.StopAndDestroy()
 
 	Debug("Waiting for nodes to auto-connect via Discv5")
-	err = WaitForAutoConnection([]*WakuNode{senderNode, receiverNode})
-	require.NoError(t, err, "Nodes did not auto-connect within timeout")
+	waitForAutoConnection(t, []*WakuNode{senderNode, receiverNode})
 
 	subscribeAndWaitForMesh(t, []*WakuNode{senderNode, receiverNode}, DefaultPubsubTopic)
 
@@ -252,7 +251,7 @@ func TestRelayMessageBroadcast(t *testing.T) {
 		nodes[i] = node
 	}
 
-	require.NoError(t, WaitForAutoConnection(nodes))
+	waitForAutoConnection(t, nodes)
 	subscribeAndWaitForMesh(t, nodes, defaultPubsubTopic)
 
 	senderNode := nodes[0]
@@ -295,8 +294,7 @@ func TestSendmsgInvalidPayload(t *testing.T) {
 	require.NoError(t, err)
 	defer receiverNode.StopAndDestroy()
 
-	err = WaitForAutoConnection([]*WakuNode{senderNode, receiverNode})
-	require.NoError(t, err, "Nodes did not auto-connect within timeout")
+	waitForAutoConnection(t, []*WakuNode{senderNode, receiverNode})
 
 	Debug("SenderNode is publishing an invalid message")
 	invalidMessage := &pb.WakuMessage{
@@ -359,8 +357,7 @@ func TestRelayNodesNotConnectedDirectly(t *testing.T) {
 	defer node3.StopAndDestroy()
 
 	Debug("Waiting for nodes to connect before proceeding")
-	err = WaitForAutoConnection([]*WakuNode{senderNode, node2, node3})
-	require.NoError(t, err, "Nodes did not connect within timeout")
+	waitForAutoConnection(t, []*WakuNode{senderNode, node2, node3})
 
 	subscribeAndWaitForMesh(t, []*WakuNode{senderNode, node2, node3}, DefaultPubsubTopic)
 
@@ -424,8 +421,7 @@ func TestRelaySubscribeAndPeerCountChange(t *testing.T) {
 	Debug("Default pubsub topic retrieved: %s", defaultPubsubTopic)
 
 	Debug("Waiting for nodes to connect via static node configuration")
-	err = WaitForAutoConnection([]*WakuNode{node1, node2, node3})
-	require.NoError(t, err, "Nodes did not connect within timeout")
+	waitForAutoConnection(t, []*WakuNode{node1, node2, node3})
 
 	require.NoError(t, SubscribeNodesToTopic([]*WakuNode{node1, node2, node3}, defaultPubsubTopic))
 
@@ -533,8 +529,7 @@ func TestRelayDisabledNodeDoesNotReceiveMessages(t *testing.T) {
 	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, defaultPubsubTopic)
 
 	Debug("Waiting for nodes to auto-connect via Discv5")
-	err = WaitForAutoConnection([]*WakuNode{node1, node2})
-	require.NoError(t, err, "Nodes did not auto-connect within timeout")
+	waitForAutoConnection(t, []*WakuNode{node1, node2})
 
 	Debug("Creating and publishing message from Node1")
 	message := node1.CreateMessage()
@@ -585,8 +580,7 @@ func TestPublishWithLargePayload(t *testing.T) {
 	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, defaultPubsubTopic)
 
 	Debug("Waiting for nodes to auto-connect via Discv5")
-	err = WaitForAutoConnection([]*WakuNode{node1, node2})
-	require.NoError(t, err, "Nodes did not auto-connect within timeout")
+	waitForAutoConnection(t, []*WakuNode{node1, node2})
 
 	payloadLength := 1024 * 100 // 100KB raw, approximately 150KB when base64 encoded
 	Debug("Generating a large payload of %d bytes", payloadLength)

@@ -4,6 +4,7 @@
 package kernel
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"runtime"
@@ -16,6 +17,35 @@ import (
 	//	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 )
+
+// connectAllPeers dials the nodes into a chain and waits for the connections.
+// It reports the failure instead of asserting it: the churn tests reconnect a
+// mesh whose nodes are being added and removed, where a failed dial is
+// expected and only worth logging.
+func connectAllPeers(nodes []*WakuNode) error {
+	if len(nodes) == 0 {
+		Error("Cannot connect peers: node list is empty")
+		return errors.New("node list is empty")
+	}
+
+	Debug("Connecting nodes in a relay chain")
+
+	for i := 0; i < len(nodes)-1; i++ {
+		Debug("Connecting node %d to node %d", i, i+1)
+		if err := nodes[i].ConnectPeer(nodes[i+1]); err != nil {
+			Error("Failed to connect node %d to node %d: %v", i, i+1, err)
+			return err
+		}
+	}
+
+	if err := waitForAutoConnectionErr(nodes); err != nil {
+		Error("Connections did not stabilize: %v", err)
+		return err
+	}
+
+	Debug("Connections stabilized")
+	return nil
+}
 
 func TestStressMemoryUsageForThreeNodes(t *testing.T) {
 	testName := t.Name()
@@ -210,9 +240,9 @@ func TestStressRandomNodesInMesh(t *testing.T) {
 		nodes = append(nodes, n)
 	}
 
-	err := ConnectAllPeers(nodes)
+	err := connectAllPeers(nodes)
 	time.Sleep(1 * time.Second)
-	require.NoError(t, err, "Failed to connect initial nodes with ConnectAllPeers")
+	require.NoError(t, err, "Failed to connect initial nodes")
 
 	captureMemory(t.Name(), "at start")
 
@@ -229,7 +259,7 @@ func TestStressRandomNodesInMesh(t *testing.T) {
 			newNode, err := StartWakuNode(fmt.Sprintf("node%d", i+1), &cfg)
 			if err == nil {
 				nodes = append(nodes, newNode)
-				err := ConnectAllPeers(nodes)
+				err := connectAllPeers(nodes)
 				if err == nil {
 					Debug("Added node%d, now connecting all peers", i+1)
 				} else {
@@ -245,7 +275,7 @@ func TestStressRandomNodesInMesh(t *testing.T) {
 			toRemove.StopAndDestroy()
 			Debug("Removed node  %d from mesh", removeIndex)
 			if len(nodes) > 1 {
-				err := ConnectAllPeers(nodes)
+				err := connectAllPeers(nodes)
 				if err == nil {
 					Debug("Reconnected all peers  node  %d", removeIndex)
 				} else {
@@ -334,7 +364,6 @@ func TestStressLargePayloadEphemeralMessagesEndurance(t *testing.T) {
 func TestStress2Nodes2kIterationTearDown(t *testing.T) {
 
 	captureMemory(t.Name(), "at start")
-	var err error
 	totalIterations := 2000
 	for i := 1; i <= totalIterations; i++ {
 		var nodes []*WakuNode
@@ -348,8 +377,7 @@ func TestStress2Nodes2kIterationTearDown(t *testing.T) {
 			require.NoError(t, err, "Failed to start node%d", n)
 			nodes = append(nodes, node)
 		}
-		err = ConnectAllPeers(nodes)
-		require.NoError(t, err)
+		require.NoError(t, connectAllPeers(nodes))
 		message := nodes[0].CreateMessage()
 		msgHash, err := nodes[0].RelayPublishNoCTX(DefaultPubsubTopic, message)
 		require.NoError(t, err)

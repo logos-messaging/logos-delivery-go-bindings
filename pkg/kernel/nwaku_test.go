@@ -377,7 +377,7 @@ func TestDial(t *testing.T) {
 	defer cancel()
 	err = dialerNode.Connect(ctx, receiverMultiaddr[0])
 	require.NoError(t, err)
-	require.NoError(t, WaitForAutoConnection([]*WakuNode{dialerNode, receiverNode}))
+	waitForAutoConnection(t, []*WakuNode{dialerNode, receiverNode})
 	// Check that both nodes now have one connected peer
 	dialerPeerCount, err = dialerNode.GetNumConnectedPeers()
 	require.NoError(t, err)
@@ -427,7 +427,7 @@ func TestRelay(t *testing.T) {
 	defer cancel()
 	err = senderNode.Connect(ctx, receiverMultiaddr[0])
 	require.NoError(t, err)
-	require.NoError(t, WaitForAutoConnection([]*WakuNode{senderNode, receiverNode}))
+	waitForAutoConnection(t, []*WakuNode{senderNode, receiverNode})
 	// Check that both nodes now have one connected peer
 	senderPeerCount, err := senderNode.GetNumConnectedPeers()
 	require.NoError(t, err)
@@ -506,7 +506,7 @@ func TestTopicHealth(t *testing.T) {
 	defer cancel()
 	err = node1.Connect(ctx, multiaddr2[0])
 	require.NoError(t, err)
-	require.NoError(t, WaitForAutoConnection([]*WakuNode{node1, node2}))
+	waitForAutoConnection(t, []*WakuNode{node1, node2})
 	// Check that both nodes now have one connected peer
 	peerCount1, err := node1.GetNumConnectedPeers()
 	require.NoError(t, err)
@@ -573,7 +573,7 @@ func TestConnectionChange(t *testing.T) {
 	defer cancel()
 	err = node1.Connect(ctx, multiaddr2[0])
 	require.NoError(t, err)
-	require.NoError(t, WaitForAutoConnection([]*WakuNode{node1, node2}))
+	waitForAutoConnection(t, []*WakuNode{node1, node2})
 	// Check that both nodes now have one connected peer
 	peerCount1, err := node1.GetNumConnectedPeers()
 	require.NoError(t, err)
@@ -640,7 +640,7 @@ func TestStore(t *testing.T) {
 	defer cancel()
 	err = senderNode.Connect(ctx, receiverMultiaddr[0])
 	require.NoError(t, err)
-	require.NoError(t, WaitForAutoConnection([]*WakuNode{senderNode, receiverNode}))
+	waitForAutoConnection(t, []*WakuNode{senderNode, receiverNode})
 	// Check that both nodes now have one connected peer
 	senderPeerCount, err := senderNode.GetNumConnectedPeers()
 	require.NoError(t, err)
@@ -924,7 +924,7 @@ func TestOnline(t *testing.T) {
 	defer cancel()
 	err = node1.Connect(ctx, multiaddr2[0])
 	require.NoError(t, err)
-	require.NoError(t, WaitForAutoConnection([]*WakuNode{node1, node2}))
+	waitForAutoConnection(t, []*WakuNode{node1, node2})
 	// Check that both nodes now have one connected peer
 	peerCount1, err := node1.GetNumConnectedPeers()
 	require.NoError(t, err)

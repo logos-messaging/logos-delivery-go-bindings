@@ -259,8 +259,7 @@ func TestDiscv5PeerMeshCount(t *testing.T) {
 	require.NoError(t, err, "Failed to subscribe all nodes to the topic")
 
 	Debug("Waiting for nodes to auto-connect via Discv5")
-	err = WaitForAutoConnection([]*WakuNode{node1, node2, node3})
-	require.NoError(t, err, "Nodes did not auto-connect within timeout")
+	waitForAutoConnection(t, []*WakuNode{node1, node2, node3})
 	node1.waitForMeshPeerCount(t, defaultPubsubTopic, 2)
 
 	Debug("Fetching number of peers in mesh for Node1 before stopping Node3")
@@ -332,8 +331,7 @@ func TestDiscv5PeerMeshIds(t *testing.T) {
 	require.NoError(t, err, "Failed to subscribe all nodes to the topic")
 
 	Debug("Waiting for nodes to auto-connect via Discv5")
-	err = WaitForAutoConnection([]*WakuNode{node1, node2, node3})
-	require.NoError(t, err, "Nodes did not auto-connect within timeout")
+	waitForAutoConnection(t, []*WakuNode{node1, node2, node3})
 	node1.waitForMeshPeerCount(t, defaultPubsubTopic, 2)
 
 	Debug("Fetching number of peers in mesh for Node1 before stopping Node3")
@@ -458,8 +456,7 @@ func TestDiscv5GetPeersConnected(t *testing.T) {
 	}()
 
 	Debug("Waiting for nodes to auto-connect via Discv5")
-	err = WaitForAutoConnection([]*WakuNode{node1, node2, node3, node4})
-	require.NoError(t, err, "Nodes did not auto-connect within timeout")
+	waitForAutoConnection(t, []*WakuNode{node1, node2, node3, node4})
 
 	Debug("Fetching number of peers in connected to  Node1")
 	peerCount, err := node1.GetNumConnectedPeers()

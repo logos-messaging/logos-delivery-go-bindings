@@ -9,6 +9,48 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// waitForAutoConnection blocks until every node has at least one connected
+// peer.
+func waitForAutoConnection(t *testing.T, nodeList []*WakuNode) {
+	t.Helper()
+
+	require.NoError(t, waitForAutoConnectionErr(nodeList), "nodes did not connect")
+}
+
+// waitForAutoConnectionErr reports the wait instead of asserting it, for the
+// stress suite, where a node coming and going is the point of the test.
+func waitForAutoConnectionErr(nodeList []*WakuNode) error {
+	Debug("Waiting for auto-connection of nodes...")
+
+	options := func(b *backoff.ExponentialBackOff) {
+		b.MaxElapsedTime = 30 * time.Second
+	}
+
+	err := RetryWithBackOff(func() error {
+		for _, node := range nodeList {
+			peers, err := node.GetConnectedPeers()
+			if err != nil {
+				return err
+			}
+
+			if len(peers) < 1 {
+				return fmt.Errorf("node %s has no connected peers", node.nodeName)
+			}
+
+			Debug("Node %s has %d connected peers", node.nodeName, len(peers))
+		}
+
+		return nil
+	}, options)
+	if err != nil {
+		Error("Auto-connection failed after retries: %v", err)
+		return err
+	}
+
+	Debug("Auto-connection check completed successfully")
+	return nil
+}
+
 // waitForConnectionChange drains the node's connection-change events until the
 // one carrying peerEvent arrives. The peer manager also emits
 // EventMetadataUpdated when a peer connects, so the wanted event is not
