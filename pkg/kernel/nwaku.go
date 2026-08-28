@@ -451,7 +451,9 @@ func (n *WakuNode) RelayPublish(ctx context.Context, message *pb.WakuMessage, pu
 	// The library expects the WakuMessage wire format (camelCase keys); the
 	// generated protobuf struct marshals content_topic, so marshal explicitly.
 	jsonMsg, err := json.Marshal(struct {
-		Payload      []byte  `json:"payload,omitempty"`
+		// payload is required by RFC 36; omitting it sends a message the
+		// library cannot parse.
+		Payload      []byte  `json:"payload"`
 		ContentTopic string  `json:"contentTopic"`
 		Version      *uint32 `json:"version,omitempty"`
 		Timestamp    *int64  `json:"timestamp,omitempty"`
