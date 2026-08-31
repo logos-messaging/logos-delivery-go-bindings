@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/logos-messaging/logos-delivery-go-bindings/internal/ffi"
@@ -427,12 +426,12 @@ func (n *WakuNode) StoreQuery(ctx context.Context, storeRequest *common.StoreQue
 		return nil, err
 	}
 
-	addrs := make([]string, len(peerInfo.Addrs))
-	for i, addr := range utils.EncapsulatePeerID(peerInfo.ID, peerInfo.Addrs...) {
-		addrs[i] = addr.String()
+	addr, err := peerAddr(peerInfo)
+	if err != nil {
+		return nil, err
 	}
 
-	jsonResponseStr, err := ffi.StoreQuery(n.wakuCtx, string(b), strings.Join(addrs, ","), timeoutMs)
+	jsonResponseStr, err := ffi.StoreQuery(n.wakuCtx, string(b), addr, timeoutMs)
 	if err != nil {
 		return nil, fmt.Errorf("error WakuStoreQuery: %w", err)
 	}
@@ -518,14 +517,14 @@ func (n *WakuNode) DnsDiscovery(ctx context.Context, enrTreeUrl string, nameDnsS
 }
 
 func (n *WakuNode) PingPeer(ctx context.Context, peerInfo peer.AddrInfo) (time.Duration, error) {
-	addrs := make([]string, len(peerInfo.Addrs))
-	for i, addr := range utils.EncapsulatePeerID(peerInfo.ID, peerInfo.Addrs...) {
-		addrs[i] = addr.String()
+	addr, err := peerAddr(peerInfo)
+	if err != nil {
+		return 0, err
 	}
 
 	timeoutMs := getContextTimeoutMilliseconds(ctx)
 
-	rttStr, err := ffi.PingPeer(n.wakuCtx, strings.Join(addrs, ","), timeoutMs)
+	rttStr, err := ffi.PingPeer(n.wakuCtx, addr, timeoutMs)
 	if err != nil {
 		return 0, fmt.Errorf("PingPeer: %w", err)
 	}
@@ -739,12 +738,33 @@ func (n *WakuNode) GetNumConnectedPeers() (int, error) {
 	return numPeers, nil
 }
 
+// getContextTimeoutMilliseconds renders a context's remaining time as the
+// millisecond timeout the library expects, falling back to requestTimeout when
+// the context carries no deadline.
 func getContextTimeoutMilliseconds(ctx context.Context) int {
 	deadline, ok := ctx.Deadline()
-	if ok {
-		return int(time.Until(deadline).Milliseconds())
+	if !ok {
+		// chronos' withTimeout expires immediately on zero, never waits.
+		return int(requestTimeout.Milliseconds())
 	}
-	return 0
+
+	remaining := time.Until(deadline)
+	if remaining <= 0 {
+		return 0
+	}
+	return int(remaining.Milliseconds())
+}
+
+// peerAddr renders a peer's first address as the peer-id-encapsulated
+// multiaddress string the library expects. Only one is sent: the entry points
+// parse their argument as a single multiaddress, so a joined list fails to
+// parse.
+func peerAddr(peerInfo peer.AddrInfo) (string, error) {
+	encapsulated := utils.EncapsulatePeerID(peerInfo.ID, peerInfo.Addrs...)
+	if len(encapsulated) == 0 {
+		return "", fmt.Errorf("peer %s has no addresses", peerInfo.ID)
+	}
+	return encapsulated[0].String(), nil
 }
 
 func FormatWakuRelayTopic(clusterId uint16, shard uint16) string {
