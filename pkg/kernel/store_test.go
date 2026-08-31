@@ -53,9 +53,9 @@ func TestStoreQuery3Nodes(t *testing.T) {
 	err = node3.ConnectPeer(node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
-	Debug("Waiting for peer connections to stabilize")
-	err = WaitForAutoConnection([]*WakuNode{node1, node2, node3})
-	require.NoError(t, err, "Nodes did not connect within timeout")
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
+
 	Debug("Publishing message from Node1 using RelayPublish")
 	message := node1.CreateMessage(&pb.WakuMessage{
 		Payload:      []byte("test-message"),
@@ -127,8 +127,9 @@ func TestStoreQueryMultipleMessages(t *testing.T) {
 	err = node3.ConnectPeer(node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
-	Debug("Waiting for peer connections to stabilize")
-	time.Sleep(2 * time.Second)
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
+
 
 	numMessages := 50
 	var sentHashes []common.MessageHash
@@ -218,8 +219,9 @@ func TestStoreQueryWith5Pagination(t *testing.T) {
 	err = node3.ConnectPeer(node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
-	Debug("Waiting for peer connections to stabilize")
-	time.Sleep(2 * time.Second)
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
+
 
 	numMessages := 10
 	defaultPubsubTopic := DefaultPubsubTopic
@@ -299,8 +301,9 @@ func TestStoreQueryWithPaginationMultiplePages(t *testing.T) {
 	err = node3.ConnectPeer(node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
-	Debug("Waiting for peer connections to stabilize")
-	time.Sleep(2 * time.Second)
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
+
 
 	numMessages := 8
 	var sentHashes []common.MessageHash
@@ -406,8 +409,9 @@ func TestStoreQueryWithPaginationReverseOrder(t *testing.T) {
 	err = node3.ConnectPeer(node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
-	Debug("Waiting for peer connections to stabilize")
-	time.Sleep(2 * time.Second)
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
+
 
 	numMessages := 8
 	var sentHashes []common.MessageHash
@@ -520,6 +524,9 @@ func TestQueryFailWhenNoStorePeer(t *testing.T) {
 	err = node3.ConnectPeer(node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2, node3}, DefaultPubsubTopic)
+
 	Debug("Sender Node1 is publishing a message")
 	message := node1.CreateMessage()
 	msgHash, err := node1.RelayPublishNoCTX(DefaultPubsubTopic, message)
@@ -578,6 +585,9 @@ func TestQueryFailWithIncorrectStaticNode(t *testing.T) {
 		node3.StopAndDestroy()
 	}()
 
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
+
 	Debug("Sender Node1 is publishing a message")
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
 	message := node1.CreateMessage()
@@ -635,6 +645,9 @@ func TestStoreQueryWithoutData(t *testing.T) {
 	Debug("Connecting Node3 to Node2")
 	err = node3.ConnectPeer(node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
+
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2, node3}, DefaultPubsubTopic)
 
 	Debug("Sender Node1 is publishing a message")
 	message := node1.CreateMessage()
@@ -699,6 +712,9 @@ func TestStoreQueryWithWrongContentTopic(t *testing.T) {
 	err = node3.ConnectPeer(node2)
 	require.NoError(t, err, "Failed to connect Node3 to Node2")
 
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2, node3}, DefaultPubsubTopic)
+
 	Debug("Recording timestamp before message publication")
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
 
@@ -746,6 +762,9 @@ func TestCheckStoredMSGsEphemeralTrue(t *testing.T) {
 	Debug("Connecting Node2 to Node1")
 	err = node2.ConnectPeer(node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
+
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
 
 	Debug("Recording timestamp before message publication")
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
@@ -799,6 +818,9 @@ func TestCheckStoredMSGsEphemeralFalse(t *testing.T) {
 	err = node2.ConnectPeer(node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
+
 	Debug("Recording timestamp before message publication")
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
 
@@ -851,6 +873,9 @@ func TestCheckLegacyStore(t *testing.T) {
 	Debug("Connecting Node2 to Node1")
 	err = node2.ConnectPeer(node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
+
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
 
 	Debug("Sender Node1 is publishing a message")
@@ -899,6 +924,9 @@ func TestStoredMessagesWithVDifferentPayloads(t *testing.T) {
 	Debug("Connecting Node2 to Node1")
 	err = node2.ConnectPeer(node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
+
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
 
 	for _, pLoad := range SAMPLE_INPUTS {
 		queryTimestamp := proto.Int64(time.Now().UnixNano())
@@ -954,6 +982,9 @@ func TestStoredMessagesWithDifferentContentTopics(t *testing.T) {
 	Debug("Connecting Node2 to Node1")
 	err = node2.ConnectPeer(node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
+
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
 
 	for _, contentTopic := range CONTENT_TOPICS_DIFFERENT_SHARDS {
 
@@ -1066,6 +1097,9 @@ func TestStoredMessagesWithMetaField(t *testing.T) {
 	Debug("Connecting Node2 to Node1")
 	err = node2.ConnectPeer(node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
+
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
 
 	Debug("Node1 is publishing a message with meta field set")
@@ -1121,6 +1155,9 @@ func TestStoredMessagesWithVersionField(t *testing.T) {
 	Debug("Connecting Node2 to Node1")
 	err = node2.ConnectPeer(node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
+
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
 
 	version := uint32(2)
 
@@ -1178,6 +1215,9 @@ func TestStoredDuplicateMessage(t *testing.T) {
 	err = node2.ConnectPeer(node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
 
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
+
 	Debug("Waiting for peer connections to stabilize")
 	options := func(b *backoff.ExponentialBackOff) {
 		b.MaxElapsedTime = 10 * time.Second
@@ -1209,8 +1249,11 @@ func TestStoredDuplicateMessage(t *testing.T) {
 	_, err = node1.RelayPublishNoCTX(DefaultPubsubTopic, msg)
 	require.NoError(t, err, "Failed to publish first message")
 
+	// gossipsub drops an already-seen message, so the duplicate reaches no peer
 	_, err = node2.RelayPublishNoCTX(DefaultPubsubTopic, msg)
-	require.NoError(t, err, "Failed to publish second message")
+	if err != nil {
+		require.ErrorContains(t, err, "NoPeersToPublish", "Failed to publish second message")
+	}
 
 	Debug("Querying stored messages from Node2 using Node1")
 	storeQueryRequest := &common.StoreQueryRequest{
@@ -1296,6 +1339,9 @@ func TestQueryStoredMessagesWithWrongHash(t *testing.T) {
 	Debug("Connecting Node2 to Node1")
 	err = node2.ConnectPeer(node1)
 	require.NoError(t, err, "Failed to connect Node2 to Node1")
+
+	Debug("Subscribing the relay nodes and waiting for the mesh")
+	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
 
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
 

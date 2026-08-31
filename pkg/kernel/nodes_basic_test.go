@@ -71,8 +71,6 @@ func TestNodeRestart(t *testing.T) {
 }
 func TestDoubleStart(t *testing.T) {
 
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	config := common.WakuConfig{
 		Relay:           true,
@@ -81,8 +79,6 @@ func TestDoubleStart(t *testing.T) {
 		Discv5Discovery: true,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	node, err := NewWakuNode(&config, "node")
@@ -98,8 +94,6 @@ func TestDoubleStart(t *testing.T) {
 
 func TestDoubleStop(t *testing.T) {
 
-	tcpPort, udpPort, err := GetFreePortIfNeeded(0, 0)
-	require.NoError(t, err)
 
 	config := common.WakuConfig{
 		Relay:           true,
@@ -108,8 +102,6 @@ func TestDoubleStop(t *testing.T) {
 		Discv5Discovery: true,
 		ClusterID:       16,
 		Shards:          []uint16{64},
-		Discv5UdpPort:   udpPort,
-		TcpPort:         tcpPort,
 	}
 
 	node, err := NewWakuNode(&config, "node")
