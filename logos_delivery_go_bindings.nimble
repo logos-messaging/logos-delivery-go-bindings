@@ -24,7 +24,7 @@ skipDirs = @["pkg", "internal", "examples", "tools", "nimble"]
 
 ### Dependencies
 requires "nim >= 2.2.4"
-requires "https://github.com/logos-messaging/logos-delivery#65efb24f"
+requires "https://github.com/logos-messaging/logos-delivery#53d42f3f"
 
 ### Helpers
 

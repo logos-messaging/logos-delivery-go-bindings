@@ -16,6 +16,9 @@ jobs:
     env:
       # Build in module mode; never use a vendor/ dir.
       GOFLAGS: -mod=mod
+      # Kept in step with logos-delivery's own CI.
+      NIM_VERSION: "2.2.6"
+      NIMBLE_VERSION: "0.24.1"
 
     steps:
       - name: Check out repository
@@ -31,8 +34,16 @@ jobs:
       - name: Set up Nim
         uses: jiro4989/setup-nim-action@v2
         with:
-          nim-version: "2.2.4"
+          nim-version: ${{ env.NIM_VERSION }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Nimble ${{ env.NIMBLE_VERSION }}
+        # The version logos-delivery resolves with. Its dependency constraints
+        # are chosen against this solver, and the one bundled with Nim picks a
+        # different graph.
+        run: |
+          cd /tmp && nimble install "nimble@${{ env.NIMBLE_VERSION }}" -y
+          echo "$HOME/.nimble/bin" >> "$GITHUB_PATH"
 
       - name: Cache the built library
         # Keyed on the .nimble, which carries the logos-delivery pin. Only the
