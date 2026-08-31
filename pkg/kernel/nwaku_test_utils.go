@@ -108,39 +108,6 @@ func (n *WakuNode) CreateMessage(customMessage ...*pb.WakuMessage) *pb.WakuMessa
 	return defaultMessage
 }
 
-func WaitForAutoConnection(nodeList []*WakuNode) error {
-	Debug("Waiting for auto-connection of nodes...")
-
-	options := func(b *backoff.ExponentialBackOff) {
-		b.MaxElapsedTime = 30 * time.Second
-	}
-
-	err := RetryWithBackOff(func() error {
-		for _, node := range nodeList {
-			peers, err := node.GetConnectedPeers()
-			if err != nil {
-				return err
-			}
-
-			if len(peers) < 1 {
-				return errors.New("expected at least one connected peer") // Retry
-			}
-
-			Debug("Node %s has %d connected peers", node.nodeName, len(peers))
-		}
-
-		return nil
-	}, options)
-
-	if err != nil {
-		Error("Auto-connection failed after retries: %v", err)
-		return err
-	}
-
-	Debug("Auto-connection check completed successfully")
-	return nil
-}
-
 func (n *WakuNode) VerifyMessageReceived(expectedMessage *pb.WakuMessage, expectedHash common.MessageHash, timeout ...time.Duration) error {
 
 	var verifyTimeout time.Duration
@@ -175,32 +142,6 @@ func (n *WakuNode) VerifyMessageReceived(expectedMessage *pb.WakuMessage, expect
 		Error("Timeout: message not received within %v on node %s", verifyTimeout, n.nodeName)
 		return errors.New("timeout: message not received within the given duration")
 	}
-}
-
-func ConnectAllPeers(nodes []*WakuNode) error {
-	if len(nodes) == 0 {
-		Error("Cannot connect peers: node list is empty")
-		return errors.New("node list is empty")
-	}
-
-	timeout := time.Duration(len(nodes)*2) * time.Second
-	Debug("Connecting nodes in a relay chain with timeout: %v", timeout)
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	for i := 0; i < len(nodes)-1; i++ {
-		Debug("Connecting node %d to node %d", i, i+1)
-		err := nodes[i].ConnectPeer(nodes[i+1])
-		if err != nil {
-			Error("Failed to connect node %d to node %d: %v", i, i+1, err)
-			return err
-		}
-	}
-
-	<-ctx.Done()
-	Debug("Connections stabilized")
-	return nil
 }
 
 func SubscribeNodesToTopic(nodes []*WakuNode, topic string) error {

@@ -9,6 +9,48 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// waitForAutoConnection blocks until every node has at least one connected
+// peer.
+func waitForAutoConnection(t *testing.T, nodeList []*WakuNode) {
+	t.Helper()
+
+	require.NoError(t, waitForAutoConnectionErr(nodeList), "nodes did not connect")
+}
+
+// waitForAutoConnectionErr reports the wait instead of asserting it, for the
+// stress suite, where a node coming and going is the point of the test.
+func waitForAutoConnectionErr(nodeList []*WakuNode) error {
+	Debug("Waiting for auto-connection of nodes...")
+
+	options := func(b *backoff.ExponentialBackOff) {
+		b.MaxElapsedTime = 30 * time.Second
+	}
+
+	err := RetryWithBackOff(func() error {
+		for _, node := range nodeList {
+			peers, err := node.GetConnectedPeers()
+			if err != nil {
+				return err
+			}
+
+			if len(peers) < 1 {
+				return fmt.Errorf("node %s has no connected peers", node.nodeName)
+			}
+
+			Debug("Node %s has %d connected peers", node.nodeName, len(peers))
+		}
+
+		return nil
+	}, options)
+	if err != nil {
+		Error("Auto-connection failed after retries: %v", err)
+		return err
+	}
+
+	Debug("Auto-connection check completed successfully")
+	return nil
+}
+
 // waitForConnectionChange drains the node's connection-change events until the
 // one carrying peerEvent arrives. The peer manager also emits
 // EventMetadataUpdated when a peer connects, so the wanted event is not
@@ -63,6 +105,61 @@ func waitForRelayMesh(t *testing.T, nodeList []*WakuNode, topic string, minPeers
 	require.NoError(t, err, "relay mesh did not form on %s", topic)
 
 	Debug("Relay mesh formed on topic %s", topic)
+}
+
+// waitForMeshPeerCount blocks until the node's gossipsub mesh on topic holds
+// exactly want peers, so a test can assert a count without guessing how long
+// the mesh takes to settle.
+func (n *WakuNode) waitForMeshPeerCount(t *testing.T, topic string, want int) {
+	t.Helper()
+
+	Debug("Waiting for %s to hold %d mesh peers on %s", n.nodeName, want, topic)
+
+	options := func(b *backoff.ExponentialBackOff) {
+		b.MaxElapsedTime = 30 * time.Second
+	}
+
+	err := RetryWithBackOff(func() error {
+		numPeers, err := n.GetNumPeersInMesh(topic)
+		if err != nil {
+			return err
+		}
+
+		if numPeers != want {
+			return fmt.Errorf("node %s has %d mesh peers on %s, want %d",
+				n.nodeName, numPeers, topic, want)
+		}
+
+		return nil
+	}, options)
+	require.NoError(t, err, "%s mesh did not settle at %d peers on %s", n.nodeName, want, topic)
+}
+
+// waitUntilOnline blocks until the node reports itself online. The health
+// monitor derives that state on its own schedule, so it lags the connection
+// that produced it.
+func (n *WakuNode) waitUntilOnline(t *testing.T) {
+	t.Helper()
+
+	Debug("Waiting for %s to come online", n.nodeName)
+
+	options := func(b *backoff.ExponentialBackOff) {
+		b.MaxElapsedTime = 30 * time.Second
+	}
+
+	err := RetryWithBackOff(func() error {
+		online, err := n.IsOnline()
+		if err != nil {
+			return err
+		}
+
+		if !online {
+			return fmt.Errorf("node %s is not online yet", n.nodeName)
+		}
+
+		return nil
+	}, options)
+	require.NoError(t, err, "%s did not come online", n.nodeName)
 }
 
 // subscribeAndWaitForMesh subscribes every node to topic and waits until each

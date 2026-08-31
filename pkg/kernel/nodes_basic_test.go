@@ -2,7 +2,6 @@ package kernel
 
 import (
 	"testing"
-	"time"
 
 	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/common"
 	"github.com/stretchr/testify/require"
@@ -24,7 +23,6 @@ func TestBasicWakuNodes(t *testing.T) {
 	}()
 
 	Debug("Successfully created the WakuNode")
-	time.Sleep(2 * time.Second)
 
 	Debug("TestBasicWakuNodes completed successfully")
 }
