@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v3"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/common"
 	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/pb"
 	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/utils"
@@ -177,17 +176,11 @@ func (n *WakuNode) GetStoredMessages(storeNode *WakuNode, storeRequest *common.S
 		return nil, errors.New("store node has no available listen addresses")
 	}
 
-	storeNodeAddrInfo, err := peer.AddrInfoFromString(storeMultiaddr[0].String())
-	if err != nil {
-		Error("Failed to convert store node address to AddrInfo: %v", err)
-		return nil, err
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	Debug("Querying store node for messages")
-	res, err := n.StoreQuery(ctx, storeRequest, *storeNodeAddrInfo)
+	res, err := n.StoreQuery(ctx, storeRequest, storeMultiaddr[0])
 	if err != nil {
 		Error("StoreQuery failed: %v", err)
 		return nil, err

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/logos-messaging/logos-delivery-go-bindings/internal/ffi"
@@ -19,7 +18,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	libp2pproto "github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/pb"
-	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/utils"
 	"github.com/multiformats/go-multiaddr"
 
 	"github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/common"
@@ -419,7 +417,10 @@ func (n *WakuNode) Version() (string, error) {
 	return version, nil
 }
 
-func (n *WakuNode) StoreQuery(ctx context.Context, storeRequest *common.StoreQueryRequest, peerInfo peer.AddrInfo) (*common.StoreQueryResponse, error) {
+// StoreQuery runs a store query against the peer at peerAddr, which must be a
+// fully qualified multiaddress carrying the peer id, as ListenAddresses
+// returns.
+func (n *WakuNode) StoreQuery(ctx context.Context, storeRequest *common.StoreQueryRequest, peerAddr multiaddr.Multiaddr) (*common.StoreQueryResponse, error) {
 	timeoutMs := getContextTimeoutMilliseconds(ctx)
 
 	b, err := json.Marshal(storeRequest)
@@ -427,12 +428,12 @@ func (n *WakuNode) StoreQuery(ctx context.Context, storeRequest *common.StoreQue
 		return nil, err
 	}
 
-	addrs := make([]string, len(peerInfo.Addrs))
-	for i, addr := range utils.EncapsulatePeerID(peerInfo.ID, peerInfo.Addrs...) {
-		addrs[i] = addr.String()
+	addr, err := peerAddrString(peerAddr)
+	if err != nil {
+		return nil, fmt.Errorf("StoreQuery: %w", err)
 	}
 
-	jsonResponseStr, err := ffi.StoreQuery(n.wakuCtx, string(b), strings.Join(addrs, ","), timeoutMs)
+	jsonResponseStr, err := ffi.StoreQuery(n.wakuCtx, string(b), addr, timeoutMs)
 	if err != nil {
 		return nil, fmt.Errorf("error WakuStoreQuery: %w", err)
 	}
@@ -517,15 +518,18 @@ func (n *WakuNode) DnsDiscovery(ctx context.Context, enrTreeUrl string, nameDnsS
 	return decodeMultiaddrs(nodeAddresses)
 }
 
-func (n *WakuNode) PingPeer(ctx context.Context, peerInfo peer.AddrInfo) (time.Duration, error) {
-	addrs := make([]string, len(peerInfo.Addrs))
-	for i, addr := range utils.EncapsulatePeerID(peerInfo.ID, peerInfo.Addrs...) {
-		addrs[i] = addr.String()
+// PingPeer measures the round-trip time to the peer at peerAddr, which must be
+// a fully qualified multiaddress carrying the peer id, as ListenAddresses
+// returns.
+func (n *WakuNode) PingPeer(ctx context.Context, peerAddr multiaddr.Multiaddr) (time.Duration, error) {
+	addr, err := peerAddrString(peerAddr)
+	if err != nil {
+		return 0, fmt.Errorf("PingPeer: %w", err)
 	}
 
 	timeoutMs := getContextTimeoutMilliseconds(ctx)
 
-	rttStr, err := ffi.PingPeer(n.wakuCtx, strings.Join(addrs, ","), timeoutMs)
+	rttStr, err := ffi.PingPeer(n.wakuCtx, addr, timeoutMs)
 	if err != nil {
 		return 0, fmt.Errorf("PingPeer: %w", err)
 	}
@@ -739,12 +743,35 @@ func (n *WakuNode) GetNumConnectedPeers() (int, error) {
 	return numPeers, nil
 }
 
+// getContextTimeoutMilliseconds renders a context's remaining time as the
+// millisecond timeout the library expects. A context without a deadline gets
+// requestTimeout: the value goes straight to chronos' withTimeout, where zero
+// milliseconds expires immediately rather than meaning "no timeout".
 func getContextTimeoutMilliseconds(ctx context.Context) int {
 	deadline, ok := ctx.Deadline()
-	if ok {
-		return int(time.Until(deadline).Milliseconds())
+	if !ok {
+		return int(requestTimeout.Milliseconds())
 	}
-	return 0
+
+	remaining := time.Until(deadline)
+	if remaining <= 0 {
+		return 0
+	}
+	return int(remaining.Milliseconds())
+}
+
+// peerAddrString renders a peer multiaddress the way the library's entry points
+// want it. They parse the argument as exactly one multiaddress and read the
+// peer id out of it, so the address has to carry a /p2p component and there is
+// no way to offer several.
+func peerAddrString(peerAddr multiaddr.Multiaddr) (string, error) {
+	if peerAddr == nil {
+		return "", errors.New("peer address is nil")
+	}
+	if _, err := peerAddr.ValueForProtocol(multiaddr.P_P2P); err != nil {
+		return "", fmt.Errorf("peer address %s carries no peer id: %w", peerAddr, err)
+	}
+	return peerAddr.String(), nil
 }
 
 func FormatWakuRelayTopic(clusterId uint16, shard uint16) string {

@@ -208,7 +208,6 @@ func TestPeerExchange(t *testing.T) {
 	discv5NodeEnr, err := discV5Node.ENR()
 	require.NoError(t, err)
 
-
 	// start node which serves as PeerExchange server
 	pxServerWakuConfig := common.WakuConfig{
 		Relay:                true,
@@ -252,7 +251,6 @@ func TestPeerExchange(t *testing.T) {
 		return errors.New("pxServer is missing the discv5 node in its peer store")
 	}, options)
 	require.NoError(t, err)
-
 
 	// start light node which uses PeerExchange to discover peers
 	pxClientWakuConfig := common.WakuConfig{
@@ -309,13 +307,12 @@ func TestPeerExchange(t *testing.T) {
 
 func TestDnsDiscover(t *testing.T) {
 
-
 	nameserver := "8.8.8.8"
 	nodeWakuConfig := common.WakuConfig{
-		Relay:         true,
-		LogLevel:      "DEBUG",
-		ClusterID:     16,
-		Shards:        []uint16{64},
+		Relay:     true,
+		LogLevel:  "DEBUG",
+		ClusterID: 16,
+		Shards:    []uint16{64},
 	}
 
 	node, err := NewWakuNode(&nodeWakuConfig, "node")
@@ -334,7 +331,6 @@ func TestDnsDiscover(t *testing.T) {
 
 func TestDial(t *testing.T) {
 
-
 	// start node that will initiate the dial
 	dialerNodeWakuConfig := common.WakuConfig{
 		Relay:           true,
@@ -347,7 +343,6 @@ func TestDial(t *testing.T) {
 	dialerNode, err := NewWakuNode(&dialerNodeWakuConfig, "dialerNode")
 	require.NoError(t, err)
 	require.NoError(t, dialerNode.Start())
-
 
 	// start node that will receive the dial
 	receiverNodeWakuConfig := common.WakuConfig{
@@ -404,7 +399,6 @@ func TestRelay(t *testing.T) {
 	senderNode, err := NewWakuNode(&senderNodeWakuConfig, "senderNode")
 	require.NoError(t, err)
 	require.NoError(t, senderNode.Start())
-
 
 	// start node that will receive the message
 	receiverNodeWakuConfig := common.WakuConfig{
@@ -470,7 +464,6 @@ func TestTopicHealth(t *testing.T) {
 	clusterId := uint16(16)
 	shardId := uint16(64)
 
-
 	// start node1
 	wakuConfig1 := common.WakuConfig{
 		Relay:           true,
@@ -483,7 +476,6 @@ func TestTopicHealth(t *testing.T) {
 	node1, err := NewWakuNode(&wakuConfig1, "node1")
 	require.NoError(t, err)
 	require.NoError(t, node1.Start())
-
 
 	// start node2
 	wakuConfig2 := common.WakuConfig{
@@ -537,7 +529,6 @@ func TestConnectionChange(t *testing.T) {
 	clusterId := uint16(16)
 	shardId := uint16(64)
 
-
 	// start node1
 	wakuConfig1 := common.WakuConfig{
 		Relay:           true,
@@ -550,7 +541,6 @@ func TestConnectionChange(t *testing.T) {
 	node1, err := NewWakuNode(&wakuConfig1, "node1")
 	require.NoError(t, err)
 	require.NoError(t, node1.Start())
-
 
 	// start node2
 	wakuConfig2 := common.WakuConfig{
@@ -602,7 +592,6 @@ func TestConnectionChange(t *testing.T) {
 
 func TestStore(t *testing.T) {
 
-
 	// start node that will send the message
 	senderNodeWakuConfig := common.WakuConfig{
 		Relay:           true,
@@ -616,7 +605,6 @@ func TestStore(t *testing.T) {
 	senderNode, err := NewWakuNode(&senderNodeWakuConfig, "senderNode")
 	require.NoError(t, err)
 	require.NoError(t, senderNode.Start())
-
 
 	// start node that will receive the message
 	receiverNodeWakuConfig := common.WakuConfig{
@@ -715,13 +703,10 @@ func TestStore(t *testing.T) {
 		TimeStart:         timeStart,
 	}
 
-	storeNodeAddrInfo, err := peer.AddrInfoFromString(receiverMultiaddr[0].String())
-	require.NoError(t, err)
-
 	ctx3, cancel3 := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel3()
 
-	res1, err := senderNode.StoreQuery(ctx3, &storeReq1, *storeNodeAddrInfo)
+	res1, err := senderNode.StoreQuery(ctx3, &storeReq1, receiverMultiaddr[0])
 	require.NoError(t, err)
 
 	storedMessages1 := *res1.Messages
@@ -742,7 +727,7 @@ func TestStore(t *testing.T) {
 	ctx4, cancel4 := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel4()
 
-	res2, err := senderNode.StoreQuery(ctx4, &storeReq2, *storeNodeAddrInfo)
+	res2, err := senderNode.StoreQuery(ctx4, &storeReq2, receiverMultiaddr[0])
 	require.NoError(t, err)
 
 	storedMessages2 := *res2.Messages
@@ -760,7 +745,7 @@ func TestStore(t *testing.T) {
 	ctx5, cancel5 := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel5()
 
-	res3, err := senderNode.StoreQuery(ctx5, &storeReq3, *storeNodeAddrInfo)
+	res3, err := senderNode.StoreQuery(ctx5, &storeReq3, receiverMultiaddr[0])
 	require.NoError(t, err)
 
 	storedMessages3 := *res3.Messages
@@ -776,7 +761,6 @@ func TestParallelPings(t *testing.T) {
 	logger, err := zap.NewDevelopment()
 	require.NoError(t, err)
 
-
 	// start node that will initiate the dial
 	dialerNodeWakuConfig := common.WakuConfig{
 		Relay:           true,
@@ -789,7 +773,6 @@ func TestParallelPings(t *testing.T) {
 	dialerNode, err := NewWakuNode(&dialerNodeWakuConfig, "dialerNode")
 	require.NoError(t, err)
 	require.NoError(t, dialerNode.Start())
-
 
 	receiverNodeWakuConfig1 := common.WakuConfig{
 		Relay:           true,
@@ -807,7 +790,6 @@ func TestParallelPings(t *testing.T) {
 	require.NotNil(t, receiverMultiaddr1)
 	require.True(t, len(receiverMultiaddr1) > 0)
 
-
 	receiverNodeWakuConfig2 := common.WakuConfig{
 		Relay:           true,
 		LogLevel:        "DEBUG",
@@ -823,7 +805,6 @@ func TestParallelPings(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, receiverMultiaddr2)
 	require.True(t, len(receiverMultiaddr2) > 0)
-
 
 	receiverNodeWakuConfig3 := common.WakuConfig{
 		Relay:           true,
@@ -841,24 +822,18 @@ func TestParallelPings(t *testing.T) {
 	require.NotNil(t, receiverMultiaddr3)
 	require.True(t, len(receiverMultiaddr3) > 0)
 
-	receiverNodes := []string{receiverMultiaddr1[0].String(), receiverMultiaddr2[0].String(), receiverMultiaddr3[0].String()}
+	receiverNodes := []ma.Multiaddr{receiverMultiaddr1[0], receiverMultiaddr2[0], receiverMultiaddr3[0]}
 
-	// node.PingPeer(ctx, peerInfo)
 	for _, receiverNode := range receiverNodes {
-
-		addrInfo, err := peer.AddrInfoFromString(receiverNode)
-		require.NoError(t, err)
-
-		go func(peerInfo peer.AddrInfo) {
+		go func(peerAddr ma.Multiaddr) {
 			ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 			defer cancel()
 
-			_, err := dialerNode.PingPeer(ctx, peerInfo)
+			_, err := dialerNode.PingPeer(ctx, peerAddr)
 			if err != nil { // pinging storenodes might fail, but we don't care
-				logger.Warn("failed pinging node", zap.Stringer("peerId", addrInfo.ID), zap.Error(err))
+				logger.Warn("failed pinging node", zap.Stringer("peerAddr", peerAddr), zap.Error(err))
 			}
-		}(*addrInfo)
-
+		}(receiverNode)
 	}
 
 	options := func(b *backoff.ExponentialBackOff) {
@@ -888,7 +863,6 @@ func TestOnline(t *testing.T) {
 	clusterId := uint16(16)
 	shardId := uint16(64)
 
-
 	// start node1
 	wakuConfig1 := common.WakuConfig{
 		Relay:           true,
@@ -901,7 +875,6 @@ func TestOnline(t *testing.T) {
 	node1, err := NewWakuNode(&wakuConfig1, "node1")
 	require.NoError(t, err)
 	require.NoError(t, node1.Start())
-
 
 	// start node2
 	wakuConfig2 := common.WakuConfig{
@@ -945,7 +918,6 @@ func TestDisconnectAllPeers(t *testing.T) {
 	clusterId := uint16(16)
 	shardId := uint16(64)
 
-
 	// start node1
 	wakuConfig1 := common.WakuConfig{
 		Relay:           true,
@@ -959,7 +931,6 @@ func TestDisconnectAllPeers(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, node1.Start())
 	defer node1.Stop()
-
 
 	// start node2
 	wakuConfig2 := common.WakuConfig{
@@ -978,7 +949,6 @@ func TestDisconnectAllPeers(t *testing.T) {
 	require.NotNil(t, multiaddr2)
 	require.True(t, len(multiaddr2) > 0)
 
-
 	// start node3
 	wakuConfig3 := common.WakuConfig{
 		Relay:           true,
@@ -995,7 +965,6 @@ func TestDisconnectAllPeers(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, multiaddr3)
 	require.True(t, len(multiaddr3) > 0)
-
 
 	// start node4
 	wakuConfig4 := common.WakuConfig{
