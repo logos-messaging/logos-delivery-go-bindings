@@ -15,6 +15,7 @@ var DEFAULT_CLUSTER_ID = uint16(16)
 func init() {
 
 	DefaultWakuConfig = common.WakuConfig{
+		Host:            "127.0.0.1",
 		Relay:           false,
 		LogLevel:        "DEBUG",
 		Discv5Discovery: true,
