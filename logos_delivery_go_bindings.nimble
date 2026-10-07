@@ -54,6 +54,27 @@ proc restoreLeopardTestSources() =
       if not fileExists(testsDir / stub):
         writeFile(testsDir / stub, "int main() { return 0; }\n")
 
+proc leopardCmakeParams(): string =
+  ## Mirrors the Leopard-RS flags of logos-delivery's portable config.nims, which
+  ## is not installed with the package: position-independent, no -march=native,
+  ## and the SIMD baseline it needs instead. Windows keeps nim-leopard's own flags.
+  if getEnv("NIM_PARAMS").contains("LeopardCmakeFlags"):
+    return ""
+  when defined(windows):
+    return ""
+  else:
+    let base =
+      when defined(macosx): "-DCMAKE_BUILD_TYPE=Release -DENABLE_OPENMP=off"
+      else: "-DCMAKE_BUILD_TYPE=Release"
+    let cxxFlags =
+      when defined(amd64) or defined(i386):
+        when defined(macosx): " -DCMAKE_CXX_FLAGS=-march=haswell"
+        else: " -DCMAKE_CXX_FLAGS=-mssse3"
+      else: ""
+    return " -d:\"LeopardCmakeFlags=" & base &
+      " -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCOMPILER_SUPPORTS_MARCH_NATIVE=FALSE" &
+      cxxFlags & "\""
+
 ### Tasks
 
 task liblogosdelivery, "Build the liblogosdelivery these bindings link against":
@@ -61,6 +82,7 @@ task liblogosdelivery, "Build the liblogosdelivery these bindings link against":
   ## Consumers set NIM_PARAMS (e.g. -d:disable_rln) and LIBLOGOSDELIVERY_OUT;
   ## neither is decided here.
   restoreLeopardTestSources()
+  putEnv("NIM_PARAMS", getEnv("NIM_PARAMS") & leopardCmakeParams())
   let pkgDir = nimblePkgDir("logos_delivery")
   withDir pkgDir:
     exec "nimble liblogosdelivery"
