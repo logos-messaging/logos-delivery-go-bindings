@@ -29,13 +29,15 @@ requires "https://github.com/logos-messaging/logos-delivery#2025acaa"
 ### Helpers
 
 proc nimblePkgDir(name: string): string =
-  ## `nimble path` reports where a dependency was installed. It prints a banner
-  ## on stdout and exits 0 even when the package is missing, so take the last
-  ## line and check it.
+  ## Where the dependency was installed. `nimble path` prints one line per
+  ## installed version and exits 0 even when the package is missing, so take the
+  ## line that holds the package's nimble file rather than trusting position.
   let (output, _) = gorgeEx("nimble path " & name)
-  result = output.strip().splitLines()[^1].strip()
-  if not result.isAbsolute() or not dirExists(result):
-    raise newException(CatchableError, name & " unresolved - run `nimble setup`")
+  for line in output.strip().splitLines():
+    let candidate = line.strip()
+    if candidate.isAbsolute() and fileExists(candidate / (name & ".nimble")):
+      return candidate
+  raise newException(CatchableError, name & " unresolved - run `nimble setup`")
 
 proc restoreLeopardTestSources() =
   ## nim-leopard's CMakeLists.txt declares test executables from `tests/`, which
