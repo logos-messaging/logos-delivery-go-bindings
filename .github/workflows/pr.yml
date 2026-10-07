@@ -16,7 +16,7 @@ jobs:
       GOFLAGS: -mod=mod
       # Kept in step with logos-delivery's own CI.
       NIM_VERSION: "2.2.6"
-      NIMBLE_VERSION: "0.24.1"
+      NIMBLE_VERSION: "0.26.0"
 
     steps:
       - name: Check out repository

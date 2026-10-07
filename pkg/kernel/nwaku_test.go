@@ -190,6 +190,7 @@ func TestPeerExchange(t *testing.T) {
 
 	// start node that will be discovered by PeerExchange
 	discV5NodeWakuConfig := common.WakuConfig{
+		Host:            "127.0.0.1",
 		Relay:           true,
 		LogLevel:        "DEBUG",
 		Discv5Discovery: true,
@@ -211,6 +212,7 @@ func TestPeerExchange(t *testing.T) {
 
 	// start node which serves as PeerExchange server
 	pxServerWakuConfig := common.WakuConfig{
+		Host:                 "127.0.0.1",
 		Relay:                true,
 		LogLevel:             "DEBUG",
 		Discv5Discovery:      true,
@@ -256,6 +258,7 @@ func TestPeerExchange(t *testing.T) {
 
 	// start light node which uses PeerExchange to discover peers
 	pxClientWakuConfig := common.WakuConfig{
+		Host:             "127.0.0.1",
 		Relay:            false,
 		LogLevel:         "DEBUG",
 		Discv5Discovery:  false,
@@ -753,7 +756,6 @@ func TestStore(t *testing.T) {
 	// Now let's query for two specific message hashes
 	storeReq3 := common.StoreQueryRequest{
 		IncludeData:   true,
-		ContentTopics: &[]string{"test-content-topic"},
 		MessageHashes: &[]common.MessageHash{hashes[0], hashes[2]},
 	}
 

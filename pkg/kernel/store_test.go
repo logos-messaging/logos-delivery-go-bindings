@@ -1338,8 +1338,6 @@ func TestQueryStoredMessagesWithWrongHash(t *testing.T) {
 	Debug("Subscribing the relay nodes and waiting for the mesh")
 	subscribeAndWaitForMesh(t, []*WakuNode{node1, node2}, DefaultPubsubTopic)
 
-	queryTimestamp := proto.Int64(time.Now().UnixNano())
-
 	Debug("Node1 is publishing a message")
 	message := node1.CreateMessage()
 	message.Payload = []byte("Test message for hash modification")
@@ -1353,7 +1351,6 @@ func TestQueryStoredMessagesWithWrongHash(t *testing.T) {
 
 	Debug("Querying stored messages from Node2 using a modified hash: %s", modifiedHash)
 	storeQueryRequest := &common.StoreQueryRequest{
-		TimeStart:     queryTimestamp,
 		IncludeData:   true,
 		MessageHashes: &[]common.MessageHash{modifiedHash},
 	}
