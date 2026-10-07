@@ -37,12 +37,30 @@ proc nimblePkgDir(name: string): string =
   if not result.isAbsolute() or not dirExists(result):
     raise newException(CatchableError, name & " unresolved - run `nimble setup`")
 
+proc restoreLeopardTestSources() =
+  ## nim-leopard's CMakeLists.txt declares test executables from `tests/`, which
+  ## Nimble strips on install, so cmake fails before building libleopard. Same
+  ## workaround as logos-delivery's Leopard.mk, which only covers its own build.
+  ## Every installed revision is patched: the dependency solve and
+  ## logos-delivery's own task can pick different ones.
+  let (output, _) = gorgeEx("nimble path leopard")
+  for line in output.splitLines():
+    let pkgDir = line.strip()
+    if not pkgDir.isAbsolute() or not dirExists(pkgDir / "vendor" / "leopard"):
+      continue
+    let testsDir = pkgDir / "vendor" / "leopard" / "tests"
+    mkDir testsDir
+    for stub in ["benchmark.cpp", "experiments.cpp"]:
+      if not fileExists(testsDir / stub):
+        writeFile(testsDir / stub, "int main() { return 0; }\n")
+
 ### Tasks
 
 task liblogosdelivery, "Build the liblogosdelivery these bindings link against":
   ## Delegates to logos-delivery's own build task.
   ## Consumers set NIM_PARAMS (e.g. -d:disable_rln) and LIBLOGOSDELIVERY_OUT;
   ## neither is decided here.
+  restoreLeopardTestSources()
   let pkgDir = nimblePkgDir("logos_delivery")
   withDir pkgDir:
     exec "nimble liblogosdelivery"
