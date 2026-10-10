@@ -319,7 +319,7 @@ func (n *WakuNode) RelaySubscribe(pubsubTopic string) error {
 		return errors.New("pubsub topic is empty")
 	}
 
-	if n.wakuCtx == nil {
+	if n.wakuCtx == 0 {
 		return errors.New("wakuCtx is nil")
 	}
 
@@ -337,7 +337,7 @@ func (n *WakuNode) RelayAddProtectedShard(clusterId uint16, shardId uint16, pubk
 		return errors.New("error WakuRelayAddProtectedShard: pubkey can't be nil")
 	}
 
-	if n.wakuCtx == nil {
+	if n.wakuCtx == 0 {
 		return errors.New("wakuCtx is nil")
 	}
 
@@ -356,7 +356,7 @@ func (n *WakuNode) RelayUnsubscribe(pubsubTopic string) error {
 		return err
 	}
 
-	if n.wakuCtx == nil {
+	if n.wakuCtx == 0 {
 		return errors.New("wakuCtx is nil")
 	}
 
