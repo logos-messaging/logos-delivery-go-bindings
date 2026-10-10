@@ -44,16 +44,22 @@ int logosdelivery_remove_event_listener(void* ctx, uint64_t listenerId);
 extern void logosReply(int ret, char* msg, size_t len, void* userData);
 extern void logosEvent(int ret, char* msg, size_t len, void* userData);
 
-// The wrappers take the cgo.Handle as a uintptr_t and widen it to void* here,
-// so the Go side never converts a uintptr back into an unsafe.Pointer.
-static void* cGoCreateNode(const void* req, size_t reqLen, uintptr_t ud) {
-	return logosdelivery_create_node((const uint8_t*) req, reqLen, (FFICallback) logosReply, (void*) ud);
+// The wrappers take the cgo.Handle and the context as uintptr_t and widen them
+// to void* here: the context is a token, not an address.
+static uintptr_t cGoCreateNode(const void* req, size_t reqLen, uintptr_t ud) {
+	return (uintptr_t) logosdelivery_create_node((const uint8_t*) req, reqLen, (FFICallback) logosReply, (void*) ud);
 }
-static int cGoCall(logosRawFn fn, void* ctx, const void* req, size_t reqLen, uintptr_t ud) {
-	return fn(ctx, (FFICallback) logosReply, (void*) ud, (const uint8_t*) req, reqLen);
+static int cGoCall(logosRawFn fn, uintptr_t ctx, const void* req, size_t reqLen, uintptr_t ud) {
+	return fn((void*) ctx, (FFICallback) logosReply, (void*) ud, (const uint8_t*) req, reqLen);
 }
-static uint64_t cGoAddEventListener(void* ctx, const char* eventName, uintptr_t ud) {
-	return logosdelivery_add_event_listener(ctx, eventName, (FFICallback) logosEvent, (void*) ud);
+static int cGoDestroy(uintptr_t ctx) {
+	return logosdelivery_destroy((void*) ctx);
+}
+static uint64_t cGoAddEventListener(uintptr_t ctx, const char* eventName, uintptr_t ud) {
+	return logosdelivery_add_event_listener((void*) ctx, eventName, (FFICallback) logosEvent, (void*) ud);
+}
+static int cGoRemoveEventListener(uintptr_t ctx, uint64_t listenerId) {
+	return logosdelivery_remove_event_listener((void*) ctx, listenerId);
 }
 */
 import "C"
@@ -68,8 +74,9 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
-// Handle is an opaque pointer to a node context owned by the C library.
-type Handle = unsafe.Pointer
+// Handle is a node context owned by the C library. The library hands out a
+// token rather than an address, so it is held as an integer; zero is no context.
+type Handle uintptr
 
 // RetOK is the return code callbacks report on success.
 const RetOK = C.LOGOS_RET_OK
@@ -175,7 +182,7 @@ func await(req any, invoke func(buf unsafe.Pointer, n C.size_t, ud C.uintptr_t) 
 // decodes the string it replies with.
 func call(fn C.logosRawFn, h Handle, req any) (string, error) {
 	raw, err := await(req, func(buf unsafe.Pointer, n C.size_t, ud C.uintptr_t) C.int {
-		return C.cGoCall(fn, h, buf, n, ud)
+		return C.cGoCall(fn, C.uintptr_t(h), buf, n, ud)
 	})
 	if err != nil {
 		return "", err
@@ -197,18 +204,18 @@ func New(configJSON string) (Handle, error) {
 
 	// The constructor's return value is the context handle; the callback
 	// reports whether construction actually succeeded.
-	var ctx unsafe.Pointer
+	var h Handle
 	_, err := await(req, func(buf unsafe.Pointer, n C.size_t, ud C.uintptr_t) C.int {
-		ctx = C.cGoCreateNode(buf, n, ud)
+		h = Handle(C.cGoCreateNode(buf, n, ud))
 		return RetOK
 	})
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	if ctx == nil {
-		return nil, errors.New("logosdelivery_create_node returned no context")
+	if h == 0 {
+		return 0, errors.New("logosdelivery_create_node returned no context")
 	}
-	return Handle(ctx), nil
+	return h, nil
 }
 
 // Start starts the node's protocols and Messaging API services.
@@ -227,7 +234,7 @@ func Stop(h Handle) error {
 // synchronous, and it also drops every event listener registered on the
 // context, so h must not be used afterwards.
 func Destroy(h Handle) error {
-	if rc := C.logosdelivery_destroy(h); rc != RetOK {
+	if rc := C.cGoDestroy(C.uintptr_t(h)); rc != RetOK {
 		return fmt.Errorf("logosdelivery_destroy failed (code %d)", int(rc))
 	}
 	return nil
@@ -278,7 +285,7 @@ func AddEventListener(h Handle, eventName string, fn EventHandler) (ListenerID, 
 	defer C.free(unsafe.Pointer(cName))
 
 	handle := cgo.NewHandle(fn)
-	id := ListenerID(C.cGoAddEventListener(h, cName, C.uintptr_t(handle)))
+	id := ListenerID(C.cGoAddEventListener(C.uintptr_t(h), cName, C.uintptr_t(handle)))
 	if id == 0 {
 		handle.Delete()
 		return 0, fmt.Errorf("failed to add %q event listener: invalid context", eventName)
@@ -300,7 +307,7 @@ func RemoveEventListener(h Handle, id ListenerID) error {
 	delete(listeners, key)
 	listenersMu.Unlock()
 
-	rc := C.logosdelivery_remove_event_listener(h, C.uint64_t(id))
+	rc := C.cGoRemoveEventListener(C.uintptr_t(h), C.uint64_t(id))
 	if known {
 		handle.Delete()
 	}
