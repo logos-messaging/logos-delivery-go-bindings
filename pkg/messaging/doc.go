@@ -3,9 +3,9 @@
 // that owns reliability, re-subscriptions, store-based catch-up and the
 // messaging event surface.
 //
-// It mirrors the Nim MessagingClient. A MessagingClient owns a node, and the
-// messaging operations are methods on it rather than free functions over a
-// context handle:
+// It mirrors the Nim MessagingClient, which drives a node rather than wrapping
+// one: a MessagingClient owns a kernel.Node, and the messaging operations are
+// methods on it rather than free functions over a context handle:
 //
 //	client, err := messaging.New(messaging.Config{
 //		Mode:   messaging.ModeCore,
@@ -44,6 +44,12 @@
 // Events() never blocks the library: an event is dropped if the channel is
 // full, so consume it from a dedicated goroutine for the client's lifetime.
 //
-// This package does not expose the underlying node handle or the kernel
-// protocols; use pkg/kernel for those.
+// The kernel protocols run against the same node, reached through Node. There
+// is no second node and no handle to pass around:
+//
+//	node := client.Node()
+//	resp, err := node.Store().Query(ctx, request, peerInfo)
+//	peers, err := node.Peers().Connected()
+//
+// Closing either the client or its node closes both.
 package messaging

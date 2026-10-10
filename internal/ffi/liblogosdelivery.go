@@ -74,10 +74,6 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
-// Handle is a node context owned by the C library. The library hands out a
-// token rather than an address, so it is held as an integer; zero is no context.
-type Handle uintptr
-
 // RetOK is the return code callbacks report on success.
 const RetOK = C.LOGOS_RET_OK
 
@@ -182,7 +178,7 @@ func await(req any, invoke func(buf unsafe.Pointer, n C.size_t, ud C.uintptr_t) 
 // decodes the string it replies with.
 func call(fn C.logosRawFn, h Handle, req any) (string, error) {
 	raw, err := await(req, func(buf unsafe.Pointer, n C.size_t, ud C.uintptr_t) C.int {
-		return C.cGoCall(fn, C.uintptr_t(h), buf, n, ud)
+		return C.cGoCall(fn, C.uintptr_t(h.ctx), buf, n, ud)
 	})
 	if err != nil {
 		return "", err
@@ -206,14 +202,14 @@ func New(configJSON string) (Handle, error) {
 	// reports whether construction actually succeeded.
 	var h Handle
 	_, err := await(req, func(buf unsafe.Pointer, n C.size_t, ud C.uintptr_t) C.int {
-		h = Handle(C.cGoCreateNode(buf, n, ud))
+		h = Handle{uintptr(C.cGoCreateNode(buf, n, ud))}
 		return RetOK
 	})
 	if err != nil {
-		return 0, err
+		return Handle{}, err
 	}
-	if h == 0 {
-		return 0, errors.New("logosdelivery_create_node returned no context")
+	if !h.Valid() {
+		return Handle{}, errors.New("logosdelivery_create_node returned no context")
 	}
 	return h, nil
 }
@@ -234,7 +230,7 @@ func Stop(h Handle) error {
 // synchronous, and it also drops every event listener registered on the
 // context, so h must not be used afterwards.
 func Destroy(h Handle) error {
-	if rc := C.cGoDestroy(C.uintptr_t(h)); rc != RetOK {
+	if rc := C.cGoDestroy(C.uintptr_t(h.ctx)); rc != RetOK {
 		return fmt.Errorf("logosdelivery_destroy failed (code %d)", int(rc))
 	}
 	return nil
@@ -285,7 +281,7 @@ func AddEventListener(h Handle, eventName string, fn EventHandler) (ListenerID, 
 	defer C.free(unsafe.Pointer(cName))
 
 	handle := cgo.NewHandle(fn)
-	id := ListenerID(C.cGoAddEventListener(C.uintptr_t(h), cName, C.uintptr_t(handle)))
+	id := ListenerID(C.cGoAddEventListener(C.uintptr_t(h.ctx), cName, C.uintptr_t(handle)))
 	if id == 0 {
 		handle.Delete()
 		return 0, fmt.Errorf("failed to add %q event listener: invalid context", eventName)
@@ -307,7 +303,7 @@ func RemoveEventListener(h Handle, id ListenerID) error {
 	delete(listeners, key)
 	listenersMu.Unlock()
 
-	rc := C.cGoRemoveEventListener(C.uintptr_t(h), C.uint64_t(id))
+	rc := C.cGoRemoveEventListener(C.uintptr_t(h.ctx), C.uint64_t(id))
 	if known {
 		handle.Delete()
 	}
