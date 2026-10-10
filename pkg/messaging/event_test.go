@@ -11,11 +11,13 @@ import (
 // liblogosdelivery node, so these tests pin the decoder to the real wire
 // format rather than to an assumption about it.
 const (
-	connectionStatusJSON  = `{"eventType":"connection_status_change","connectionStatus":"Connected"}`
-	messageReceivedJSON   = `{"eventType":"message_received","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118","message":{"payload":[104,101,108,108,111],"contentTopic":"/logos-delivery-go-bindings/1/raw/proto","meta":[],"version":0,"timestamp":1787098057353072384,"ephemeral":false,"proof":[]}}`
-	messagePropagatedJSON = `{"eventType":"message_propagated","requestId":"f9620781ac7c85234b41","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118"}`
-	messageSentJSON       = `{"eventType":"message_sent","requestId":"f9620781ac7c85234b41","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118"}`
-	messageErrorJSON      = `{"eventType":"message_error","requestId":"f9620781ac7c85234b41","messageHash":"0x2700","error":"Unable to send within retry time window"}`
+	connectionStatusJSON    = `{"eventType":"connection_status_change","connectionStatus":"Connected"}`
+	messageReceivedJSON     = `{"eventType":"message_received","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118","message":{"payload":[104,101,108,108,111],"contentTopic":"/logos-delivery-go-bindings/1/raw/proto","meta":[],"version":0,"timestamp":1787098057353072384,"ephemeral":false,"proof":[]}}`
+	messagePropagatedJSON   = `{"eventType":"message_propagated","requestId":"f9620781ac7c85234b41","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118"}`
+	messageSentJSON         = `{"eventType":"message_sent","requestId":"f9620781ac7c85234b41","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118"}`
+	messageErrorJSON        = `{"eventType":"message_error","requestId":"f9620781ac7c85234b41","messageHash":"0x2700","error":"Unable to send within retry time window"}`
+	messageQueuedJSON       = `{"eventType":"message_queued","requestId":"ad0f8267f7bd5a8f14c5","messageHash":"0xd70d4163f3850e8483af6c995ada9d1edac6d0a8d98ae4cd8180ce9c8fc42098"}`
+	messageReceivedLiveJSON = `{"eventType":"message_received","messageHash":"0x8606984c05869f0a337bdabfe955a94ba4ee627acebcc8d1e432d6cf9fa646a3","message":{"payload":"aGVsbG8=","contentTopic":"/logos-delivery-go-bindings/1/capture/proto","version":0,"timestamp":1791611557977488640,"ephemeral":false,"meta":"","proof":""},"source":"live"}`
 )
 
 func TestDecodeMessageReceived(t *testing.T) {
@@ -148,5 +150,39 @@ func TestWireBytesAlternativeEncodings(t *testing.T) {
 	}
 	if b != nil {
 		t.Errorf("null decoded to %v, want nil", b)
+	}
+}
+
+func TestDecodeMessageReceivedSource(t *testing.T) {
+	ev, err := decodeEvent(messageReceivedLiveJSON)
+	if err != nil {
+		t.Fatalf("decodeEvent: %v", err)
+	}
+	e, ok := ev.(MessageReceivedEvent)
+	if !ok {
+		t.Fatalf("got %T, want MessageReceivedEvent", ev)
+	}
+	if e.Source != SourceLive {
+		t.Errorf("Source = %q, want %q", e.Source, SourceLive)
+	}
+	if !bytes.Equal(e.Message.Payload, []byte("hello")) {
+		t.Errorf("Payload = %q, want %q", e.Message.Payload, "hello")
+	}
+}
+
+func TestDecodeMessageQueued(t *testing.T) {
+	ev, err := decodeEvent(messageQueuedJSON)
+	if err != nil {
+		t.Fatalf("decodeEvent: %v", err)
+	}
+	e, ok := ev.(MessageQueuedEvent)
+	if !ok {
+		t.Fatalf("got %T, want MessageQueuedEvent", ev)
+	}
+	if want := RequestID("ad0f8267f7bd5a8f14c5"); e.RequestID != want {
+		t.Errorf("RequestID = %s, want %s", e.RequestID, want)
+	}
+	if want := "0xd70d4163f3850e8483af6c995ada9d1edac6d0a8d98ae4cd8180ce9c8fc42098"; e.MessageHash != want {
+		t.Errorf("MessageHash = %q, want %q", e.MessageHash, want)
 	}
 }
