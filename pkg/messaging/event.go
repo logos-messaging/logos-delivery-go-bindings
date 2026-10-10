@@ -11,6 +11,7 @@ import (
 // eventType each event's JSON carries.
 const (
 	wireMessageReceived        = "onMessageReceived"
+	wireMessageQueued          = "onMessageQueued"
 	wireMessageSent            = "onMessageSent"
 	wireMessagePropagated      = "onMessagePropagated"
 	wireMessageError           = "onMessageError"
@@ -21,6 +22,7 @@ const (
 func messagingEvents() []string {
 	return []string{
 		wireMessageReceived,
+		wireMessageQueued,
 		wireMessageSent,
 		wireMessagePropagated,
 		wireMessageError,
@@ -89,15 +91,38 @@ type Event interface {
 	isMessagingEvent()
 }
 
-// MessageReceivedEvent is emitted when a message arrives from the network on a
-// subscribed content topic.
+// MessageSource tells a message delivered as it was published from one
+// recovered from a store peer.
+type MessageSource string
+
+const (
+	// SourceLive is a message delivered as it was published, over relay or
+	// filter.
+	SourceLive MessageSource = "live"
+	// SourceHistory is a message recovered from a store peer, at start or after
+	// a connectivity gap.
+	SourceHistory MessageSource = "history"
+)
+
+// MessageReceivedEvent is emitted when a message arrives on a subscribed
+// content topic, live or recovered from store.
 type MessageReceivedEvent struct {
 	MessageHash string
 	Message     Message
+	Source      MessageSource
 }
 
-// MessageSentEvent is emitted when a message has been accepted by the send
-// service and queued for delivery.
+// MessageQueuedEvent is emitted when a send is held back because the rate-limit
+// budget of the current epoch is spent. The message stays queued and goes out
+// once the budget refills. It is emitted at most once per send.
+type MessageQueuedEvent struct {
+	RequestID   RequestID
+	MessageHash string
+}
+
+// MessageSentEvent is emitted when a store node confirms a message. It follows
+// the MessagePropagatedEvent, and only when the node validates its sends with
+// store.
 type MessageSentEvent struct {
 	RequestID   RequestID
 	MessageHash string
@@ -124,6 +149,7 @@ type ConnectionStatusEvent struct {
 }
 
 func (MessageReceivedEvent) isMessagingEvent()   {}
+func (MessageQueuedEvent) isMessagingEvent()     {}
 func (MessageSentEvent) isMessagingEvent()       {}
 func (MessagePropagatedEvent) isMessagingEvent() {}
 func (MessageErrorEvent) isMessagingEvent()      {}
@@ -200,6 +226,7 @@ func decodeEvent(eventJSON string) (Event, error) {
 				Timestamp    int64     `json:"timestamp"`
 				Ephemeral    bool      `json:"ephemeral"`
 			} `json:"message"`
+			Source string `json:"source"`
 		}
 		if err := decode(&e); err != nil {
 			return nil, err
@@ -214,7 +241,18 @@ func decodeEvent(eventJSON string) (Event, error) {
 				Timestamp:    e.Message.Timestamp,
 				Ephemeral:    e.Message.Ephemeral,
 			},
+			Source: MessageSource(e.Source),
 		}, nil
+
+	case "message_queued":
+		var e struct {
+			RequestID   string `json:"requestId"`
+			MessageHash string `json:"messageHash"`
+		}
+		if err := decode(&e); err != nil {
+			return nil, err
+		}
+		return MessageQueuedEvent{RequestID: RequestID(e.RequestID), MessageHash: e.MessageHash}, nil
 
 	case "message_sent":
 		var e struct {
