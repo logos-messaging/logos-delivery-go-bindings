@@ -24,7 +24,7 @@ skipDirs = @["pkg", "internal", "examples", "tools", "nimble"]
 
 ### Dependencies
 requires "nim >= 2.2.4"
-requires "https://github.com/logos-messaging/logos-delivery#2025acaa"
+requires "https://github.com/logos-messaging/logos-delivery#947c7876"
 
 ### Helpers
 
@@ -94,3 +94,30 @@ task liblogosdelivery, "Build the liblogosdelivery these bindings link against":
     let lib = DynlibFormat % "logosdelivery"
     mkDir outDir
     cpFile pkgDir / "build" / lib, outDir / lib
+
+proc runMobileTask(taskName, built: string) =
+  ## Delegates to logos-delivery's mobile task, then copies `built`, relative to
+  ## its build/ directory, to LIBLOGOSDELIVERY_OUT. config.nims, installed with
+  ## logos-delivery, supplies the cross-compile flags, so leopardCmakeParams is
+  ## not added. nat_traversal's root goes on NIM_PARAMS for the task to find.
+  restoreLeopardTestSources()
+  putEnv("NIM_PARAMS", getEnv("NIM_PARAMS") &
+    " --path:\"" & nimblePkgDir("nat_traversal") & "\"")
+  let pkgDir = nimblePkgDir("logos_delivery")
+  withDir pkgDir:
+    exec "nimble " & taskName
+
+  let outDir = getEnv("LIBLOGOSDELIVERY_OUT")
+  if outDir.len > 0:
+    mkDir outDir
+    cpFile pkgDir / "build" / built, outDir / extractFilename(built)
+
+task liblogosdeliveryAndroid, "Build liblogosdelivery for Android":
+  ## Needs ANDROID_NDK_ROOT, CPU (arm64, amd64, i386, arm) and ABIDIR.
+  runMobileTask("libLogosDeliveryAndroid",
+    "android" / getEnv("ABIDIR") / "liblogosdelivery.so")
+
+task liblogosdeliveryIOS, "Build liblogosdelivery for iOS":
+  ## Needs IOS_SDK (iphoneos, iphonesimulator), IOS_ARCH and IOS_SDK_PATH.
+  runMobileTask("libLogosDeliveryIOS",
+    "ios" / (getEnv("IOS_SDK") & "-" & getEnv("IOS_ARCH")) / "liblogosdelivery.a")

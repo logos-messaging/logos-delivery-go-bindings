@@ -12,7 +12,7 @@ LIB := $(LIB_DIR)/liblogosdelivery.$(LIB_EXT)
 export CGO_CFLAGS  = -I$(LOGOS_DELIVERY_DIR)/library
 export CGO_LDFLAGS = -L$(LIB_DIR) -llogosdelivery -Wl,-rpath,$(LIB_DIR)
 
-.PHONY: deps liblogosdelivery build example test clean print-paths
+.PHONY: deps liblogosdelivery liblogosdelivery-android liblogosdelivery-ios build example test clean print-paths
 
 deps: nimble.paths ##@build Resolve the Nim dependencies
 
@@ -25,6 +25,14 @@ $(LIB): | nimble.paths
 	@test -f $@ || (echo "ERROR: $@ was not produced" && exit 1)
 
 liblogosdelivery: $(LIB) ##@build Build liblogosdelivery from the Nimble dependency
+
+liblogosdelivery-android: | nimble.paths ##@build Build liblogosdelivery for Android; set ANDROID_NDK_ROOT, CPU and ABIDIR
+	LIBLOGOSDELIVERY_OUT="$(LIB_DIR)/android/$(ABIDIR)" NIM_PARAMS="$$NIM_PARAMS -d:disable_rln" \
+		$(NIMBLE) liblogosdeliveryAndroid
+
+liblogosdelivery-ios: | nimble.paths ##@build Build liblogosdelivery for iOS; set IOS_SDK, IOS_ARCH and IOS_SDK_PATH
+	LIBLOGOSDELIVERY_OUT="$(LIB_DIR)/ios/$(IOS_SDK)-$(IOS_ARCH)" NIM_PARAMS="$$NIM_PARAMS -d:disable_rln" \
+		$(NIMBLE) liblogosdeliveryIOS
 
 build: $(LIB) ##@build Build the Go packages
 	$(GO) build ./...

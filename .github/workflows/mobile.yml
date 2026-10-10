@@ -1,0 +1,98 @@
+name: Mobile
+
+on:
+  pull_request:
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOFLAGS: -mod=mod
+  NIM_VERSION: "2.2.6"
+  NIMBLE_VERSION: "0.26.0"
+
+jobs:
+  android:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      CPU: arm64
+      ABIDIR: arm64-v8a
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - uses: jiro4989/setup-nim-action@v2
+        with:
+          nim-version: ${{ env.NIM_VERSION }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Nimble ${{ env.NIMBLE_VERSION }}
+        run: |
+          cd /tmp && nimble install "nimble@${{ env.NIMBLE_VERSION }}" -y
+          echo "$HOME/.nimble/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Android NDK
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+
+      - name: Resolve Nim dependencies
+        run: make deps
+
+      - name: Build liblogosdelivery
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+        run: make liblogosdelivery-android
+
+      - name: Cross-build the Go packages
+        env:
+          NDK: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang" \
+          CGO_ENABLED=1 GOOS=android GOARCH=arm64 \
+          CGO_LDFLAGS="-L$PWD/build/android/$ABIDIR -llogosdelivery" \
+            go build ./...
+
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: [iphoneos, iphonesimulator]
+    env:
+      IOS_SDK: ${{ matrix.sdk }}
+      IOS_ARCH: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - uses: jiro4989/setup-nim-action@v2
+        with:
+          nim-version: ${{ env.NIM_VERSION }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Nimble ${{ env.NIMBLE_VERSION }}
+        run: |
+          cd /tmp && nimble install "nimble@${{ env.NIMBLE_VERSION }}" -y
+          echo "$HOME/.nimble/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve Nim dependencies
+        run: make deps
+
+      - name: Build liblogosdelivery
+        run: IOS_SDK_PATH="$(xcrun --sdk "$IOS_SDK" --show-sdk-path)" make liblogosdelivery-ios
+
+      - name: Check the library
+        run: |
+          lipo -info "build/ios/$IOS_SDK-$IOS_ARCH/liblogosdelivery.a"
+          otool -l "build/ios/$IOS_SDK-$IOS_ARCH/liblogosdelivery.a" | grep -m1 -A4 LC_BUILD_VERSION
