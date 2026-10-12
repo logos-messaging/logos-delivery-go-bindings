@@ -91,7 +91,9 @@ task liblogosdelivery, "Build the liblogosdelivery these bindings link against":
 
   let outDir = getEnv("LIBLOGOSDELIVERY_OUT")
   if outDir.len > 0:
-    let lib = DynlibFormat % "logosdelivery"
+    let lib =
+      when defined(windows): "liblogosdelivery.dll"
+      else: DynlibFormat % "logosdelivery"
     mkDir outDir
     cpFile pkgDir / "build" / lib, outDir / lib
 
