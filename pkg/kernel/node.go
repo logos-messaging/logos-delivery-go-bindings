@@ -119,7 +119,7 @@ func newNode(configJSON string) (*Node, error) {
 	for _, name := range kernelEvents() {
 		if _, err := n.AddEventListener(name, n.onEvent); err != nil {
 			_ = n.Close()
-			return nil, err
+			return nil, fmt.Errorf("kernel: add %s listener: %w", name, err)
 		}
 	}
 	return n, nil

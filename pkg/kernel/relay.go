@@ -91,7 +91,7 @@ func (r *Relay) Publish(
 		Ephemeral:    message.Ephemeral,
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("kernel: relay publish: marshal message: %w", err)
 	}
 
 	hash, err := ffi.RelayPublish(r.n.h, pubsubTopic, string(jsonMsg), timeoutMillis(ctx, requestTimeout))
@@ -101,7 +101,7 @@ func (r *Relay) Publish(
 
 	parsed, err := common.ToMessageHash(hash)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("kernel: relay publish: message hash: %w", err)
 	}
 
 	return parsed, nil

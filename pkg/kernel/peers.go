@@ -47,7 +47,7 @@ func (p *Peers) ConnectTo(ctx context.Context, target *Node) error {
 
 	addrs, err := target.Debug().ListenAddresses()
 	if err != nil {
-		return err
+		return fmt.Errorf("kernel: connect: listen addresses: %w", err)
 	}
 	if len(addrs) == 0 {
 		return errors.New("kernel: connect: target node has no listen addresses")
@@ -112,7 +112,7 @@ func (p *Peers) DisconnectFrom(target *Node) error {
 
 	id, err := target.Debug().PeerID()
 	if err != nil {
-		return err
+		return fmt.Errorf("kernel: disconnect: peer id: %w", err)
 	}
 
 	return p.Disconnect(id)
@@ -147,7 +147,7 @@ func (p *Peers) Connected() (peer.IDSlice, error) {
 func (p *Peers) NumConnected() (int, error) {
 	peers, err := p.Connected()
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("kernel: num connected: %w", err)
 	}
 	return len(peers), nil
 }
@@ -212,7 +212,7 @@ func (p *Peers) Ping(ctx context.Context, peerInfo peer.AddrInfo) (time.Duration
 
 	addr, err := peerAddr(peerInfo)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("kernel: ping peer: %w", err)
 	}
 
 	rttStr, err := ffi.PingPeer(p.n.h, addr, timeoutMillis(ctx, requestTimeout))
@@ -222,7 +222,7 @@ func (p *Peers) Ping(ctx context.Context, peerInfo peer.AddrInfo) (time.Duration
 
 	rtt, err := strconv.ParseInt(rttStr, 10, 64)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("kernel: ping peer: parse rtt: %w", err)
 	}
 	return time.Duration(rtt), nil
 }

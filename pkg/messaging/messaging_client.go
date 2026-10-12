@@ -75,7 +75,7 @@ func Attach(node *kernel.Node) (*MessagingClient, error) {
 	for _, name := range messagingEvents() {
 		if _, err := node.AddEventListener(name, c.onEvent); err != nil {
 			_ = node.Close()
-			return nil, err
+			return nil, fmt.Errorf("messaging: add %s listener: %w", name, err)
 		}
 	}
 	return c, nil

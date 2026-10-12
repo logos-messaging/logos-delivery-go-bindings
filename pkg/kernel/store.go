@@ -30,12 +30,12 @@ func (s *Store) Query(
 
 	requestJSON, err := json.Marshal(request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("kernel: store query: marshal request: %w", err)
 	}
 
 	addr, err := peerAddr(peerInfo)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("kernel: store query: %w", err)
 	}
 
 	responseJSON, err := ffi.StoreQuery(
@@ -47,7 +47,7 @@ func (s *Store) Query(
 
 	var response common.StoreQueryResponse
 	if err := json.Unmarshal([]byte(responseJSON), &response); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("kernel: store query: decode response: %w", err)
 	}
 	return &response, nil
 }
