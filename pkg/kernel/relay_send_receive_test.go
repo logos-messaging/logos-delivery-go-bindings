@@ -17,10 +17,11 @@ import (
 // other must receive it. It exercises the unified node lifecycle and the Kernel
 // relay ops (waku_relay_subscribe/publish) over the one library.
 func TestRelaySendReceive(t *testing.T) {
+	requiresNode(t)
 	const clusterID, shardID = 16, 64
 
-	newNode := func(name string) *WakuNode {
-		node, err := StartWakuNode(name, &common.WakuConfig{
+	newNode := func() *Node {
+		node, err := StartWakuNode(&common.WakuConfig{
 			Relay:           true,
 			LogLevel:        "ERROR",
 			Discv5Discovery: false,
@@ -28,28 +29,28 @@ func TestRelaySendReceive(t *testing.T) {
 			Shards:          []uint16{shardID},
 		})
 		require.NoError(t, err)
-		t.Cleanup(func() { _ = node.StopAndDestroy() })
+		t.Cleanup(func() { _ = node.Close() })
 		return node
 	}
 
-	sender := newNode("sender")
-	receiver := newNode("receiver")
+	sender := newNode()
+	receiver := newNode()
 
 	topic := FormatWakuRelayTopic(clusterID, shardID)
-	require.NoError(t, sender.RelaySubscribe(topic))
-	require.NoError(t, receiver.RelaySubscribe(topic))
+	require.NoError(t, sender.Relay().Subscribe(topic))
+	require.NoError(t, receiver.Relay().Subscribe(topic))
 
 	// Dial the receiver from the sender using the receiver's listen multiaddr
 	// (it already embeds the peer id).
-	addrs, err := receiver.ListenAddresses()
+	addrs, err := receiver.Debug().ListenAddresses()
 	require.NoError(t, err)
 	require.NotEmpty(t, addrs)
 
 	connCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	require.NoError(t, sender.Connect(connCtx, addrs[0]))
+	require.NoError(t, sender.Peers().Connect(connCtx, addrs[0]))
 	require.Eventually(t, func() bool {
-		n, _ := sender.GetNumConnectedPeers()
+		n, _ := sender.Peers().NumConnected()
 		return n >= 1
 	}, 15*time.Second, time.Second, "sender never connected to the receiver")
 
@@ -61,12 +62,12 @@ func TestRelaySendReceive(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		// May fail with NoPeersToPublish until gossipsub grafts the mesh; retried.
-		_, _ = sender.RelayPublish(ctx, &pb.WakuMessage{
+		_, _ = sender.Relay().Publish(ctx, topic, &pb.WakuMessage{
 			Payload:      payload,
 			ContentTopic: "/kernel-test/1/relay/proto",
 			Version:      proto.Uint32(0),
 			Timestamp:    proto.Int64(time.Now().UnixNano()),
-		}, topic)
+		})
 	}
 
 	// Publish immediately, then retry each second while waiting for delivery —
@@ -77,7 +78,7 @@ func TestRelaySendReceive(t *testing.T) {
 	deadline := time.After(10 * time.Second)
 	for {
 		select {
-		case env := <-receiver.MsgChan:
+		case env := <-receiver.Messages():
 			if string(env.Message().GetPayload()) == string(payload) {
 				return // received our exact message — success
 			}

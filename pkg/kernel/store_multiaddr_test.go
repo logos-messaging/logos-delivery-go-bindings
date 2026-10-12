@@ -11,24 +11,26 @@ import (
 )
 
 func TestStoreQueryWithSeveralPeerAddresses(t *testing.T) {
+	requiresNode(t)
+
 	storeConfig := DefaultWakuConfig
 	storeConfig.Relay = true
 	storeConfig.Store = true
 
-	storeNode, err := StartWakuNode("StoreNode", &storeConfig)
+	storeNode, err := StartWakuNode(&storeConfig)
 	require.NoError(t, err, "Failed to start StoreNode")
-	defer func() { _ = storeNode.StopAndDestroy() }()
+	defer func() { _ = storeNode.Close() }()
 
 	clientConfig := DefaultWakuConfig
 	clientConfig.Relay = true
 
-	client, err := StartWakuNode("Client", &clientConfig)
+	client, err := StartWakuNode(&clientConfig)
 	require.NoError(t, err, "Failed to start Client")
-	defer func() { _ = client.StopAndDestroy() }()
+	defer func() { _ = client.Close() }()
 
-	require.NoError(t, client.ConnectPeer(storeNode))
+	require.NoError(t, client.Peers().ConnectTo(context.Background(), storeNode))
 
-	storeAddrs, err := storeNode.ListenAddresses()
+	storeAddrs, err := storeNode.Debug().ListenAddresses()
 	require.NoError(t, err)
 	require.NotEmpty(t, storeAddrs)
 
@@ -43,6 +45,6 @@ func TestStoreQueryWithSeveralPeerAddresses(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	_, err = client.StoreQuery(ctx, &DefaultStoreQueryRequest, *storeInfo)
+	_, err = client.Store().Query(ctx, &DefaultStoreQueryRequest, *storeInfo)
 	require.NoError(t, err, "store query with several addresses for one peer")
 }

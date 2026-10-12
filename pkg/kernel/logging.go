@@ -30,18 +30,19 @@ func SetLogger(newLogger *zap.Logger) {
 	sugar = newLogger.Sugar()
 }
 
-func Debug(msg string, args ...interface{}) {
+func logDebug(msg string, args ...interface{}) {
 	_getLogger().Debugf(msg, args...)
 }
 
-func Info(msg string, args ...interface{}) {
+//nolint:unused // completes the level set alongside logDebug/logWarn/logError.
+func logInfo(msg string, args ...interface{}) {
 	_getLogger().Infof(msg, args...)
 }
 
-func Warn(msg string, args ...interface{}) {
+func logWarn(msg string, args ...interface{}) {
 	_getLogger().Warnf(msg, args...)
 }
 
-func Error(msg string, args ...interface{}) {
+func logError(msg string, args ...interface{}) {
 	_getLogger().Errorf(msg, args...)
 }

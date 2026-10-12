@@ -58,6 +58,15 @@ func main() {
 	// Give the node a moment to find peers before publishing.
 	time.Sleep(5 * time.Second)
 
+	// The Kernel API runs against the very same node.
+	node := client.Node()
+	if peerID, err := node.Debug().PeerID(); err == nil {
+		log.Printf("peer id %s", peerID)
+	}
+	if peers, err := node.Peers().NumConnected(); err == nil {
+		log.Printf("connected to %d peers", peers)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
