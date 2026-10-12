@@ -1,0 +1,17 @@
+// 14/WAKU2-MESSAGE rfc: https://rfc.vac.dev/spec/14/
+
+syntax = "proto3";
+
+package logos.delivery.kernel.v1;
+
+option go_package = "github.com/logos-messaging/logos-delivery-go-bindings/pkg/kernel/pb";
+
+message WakuMessage {
+  bytes payload = 1;
+  string content_topic = 2;
+  optional uint32 version = 3;
+  optional sint64 timestamp = 10;
+  optional bytes meta = 11;
+  optional bool ephemeral = 31;
+  optional bytes rate_limit_proof = 21;
+}
