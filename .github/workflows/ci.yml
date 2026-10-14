@@ -104,3 +104,90 @@ jobs:
 
       - name: Compile kernel stress tests
         run: go test -tags stress -run '^$' ./pkg/kernel/...
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CPU: arm64
+      ABIDIR: arm64-v8a
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: nim-lang/setup-nimble-action@v2
+        with:
+          nimble-version: ${{ env.NIMBLE_VERSION }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Nim dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            nimbledeps
+            ~/.nimble/nimbinaries
+          key: nimbledeps-android-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
+
+      - name: Set up Android NDK
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+
+      - name: Resolve Nim dependencies
+        run: make deps
+
+      - name: Build liblogosdelivery
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+        run: make liblogosdelivery-android
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cross-build
+        env:
+          NDK: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang" \
+          CGO_ENABLED=1 GOOS=android GOARCH=arm64 \
+          CGO_LDFLAGS="-L$PWD/build/android/$ABIDIR -llogosdelivery" \
+            go build ./...
+
+  ios:
+    name: 'ios / ${{ matrix.sdk }}'
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: [iphoneos, iphonesimulator]
+    env:
+      IOS_SDK: ${{ matrix.sdk }}
+      IOS_ARCH: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: nim-lang/setup-nimble-action@v2
+        with:
+          nimble-version: ${{ env.NIMBLE_VERSION }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Nim dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            nimbledeps
+            ~/.nimble/nimbinaries
+          key: nimbledeps-ios-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
+
+      - name: Resolve Nim dependencies
+        run: make deps
+
+      - name: Build liblogosdelivery
+        run: IOS_SDK_PATH="$(xcrun --sdk "$IOS_SDK" --show-sdk-path)" make liblogosdelivery-ios
+
+      - name: Check the library
+        run: |
+          lipo -info "build/ios/$IOS_SDK-$IOS_ARCH/liblogosdelivery.a"
+          otool -l "build/ios/$IOS_SDK-$IOS_ARCH/liblogosdelivery.a" | grep -m1 -A4 LC_BUILD_VERSION
