@@ -57,8 +57,16 @@ jobs:
     defaults:
       run:
         shell: ${{ matrix.os == 'windows-latest' && 'msys2 {0}' || 'bash' }}
+        working-directory: ${{ matrix.os == 'windows-latest' && 'C:/w' || '.' }}
     steps:
       - uses: actions/checkout@v4
+
+      # boringssl's test data in nimbledeps overruns MAX_PATH under the long workspace path.
+      - name: Shorten the workspace path
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: New-Item -ItemType Junction -Path C:/w -Target $env:GITHUB_WORKSPACE | Out-Null
 
       # No compiler here: Nimble installs the one logos-delivery `requires`.
       - uses: nim-lang/setup-nimble-action@v2
