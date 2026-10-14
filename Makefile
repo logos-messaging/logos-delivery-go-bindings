@@ -12,7 +12,7 @@ LIB := $(LIB_DIR)/liblogosdelivery.$(LIB_EXT)
 export CGO_CFLAGS  = -I$(LOGOS_DELIVERY_DIR)/library
 export CGO_LDFLAGS = -L$(LIB_DIR) -llogosdelivery -Wl,-rpath,$(LIB_DIR)
 
-.PHONY: deps liblogosdelivery liblogosdelivery-android liblogosdelivery-ios build example test clean print-paths
+.PHONY: deps liblogosdelivery liblogosdelivery-android liblogosdelivery-ios build example test clean print-paths print-cgo
 
 deps: nimble.paths ##@build Resolve the Nim dependencies
 
@@ -50,6 +50,10 @@ test: $(LIB) ##@test Run the Go tests; TEST=<name> to select one
 print-paths:
 	@echo "LOGOS_DELIVERY_DIR: $(LOGOS_DELIVERY_DIR)"
 	@echo "LIB:                $(LIB)"
+
+print-cgo: ##@build Print the cgo flags, for a caller that runs Go itself
+	@echo 'CGO_CFLAGS=$(CGO_CFLAGS)'
+	@echo 'CGO_LDFLAGS=$(CGO_LDFLAGS)'
 
 clean:
 	@rm -f $(LIB)

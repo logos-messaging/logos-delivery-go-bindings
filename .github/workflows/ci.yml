@@ -1,0 +1,106 @@
+name: ci
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: '1.24'
+  NIMBLE_VERSION: '0.26.0'
+  GOFLAGS: -mod=mod
+
+jobs:
+  # The cgo preamble declares the C exports itself, so type-checking needs no
+  # liblogosdelivery and no Nim.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: go mod tidy is clean
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Fetch the merge base
+        run: git fetch --no-tags origin master
+
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.4.0
+          # `config verify` fetches its schema on every run and times out.
+          verify: false
+
+  build-test:
+    name: 'go / ${{ matrix.os }}'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      # No compiler here: Nimble installs the one logos-delivery `requires`.
+      - uses: nim-lang/setup-nimble-action@v2
+        with:
+          nimble-version: ${{ env.NIMBLE_VERSION }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Nim dependencies and the library
+        uses: actions/cache@v4
+        with:
+          # nimbinaries is global; without it the bootstrap grabs the newest Nim.
+          path: |
+            nimbledeps
+            ~/.nimble/nimbinaries
+            build
+          key: liblogosdelivery-${{ matrix.os }}-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
+
+      - name: Resolve Nim dependencies
+        run: make deps
+
+      - name: Build liblogosdelivery
+        run: make liblogosdelivery
+
+      - name: Export cgo flags
+        run: make print-cgo >> "$GITHUB_ENV"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test messaging
+        run: go test ./pkg/messaging/... ./internal/ffi/...
+
+      # Needs outbound connectivity, so only compiled.
+      - name: Compile messaging integration tests
+        run: go test -tags integration -run '^$' ./pkg/messaging/...
+
+      - name: Test kernel
+        run: go test -timeout 20m ./pkg/kernel/...
+
+      - name: Compile kernel stress tests
+        run: go test -tags stress -run '^$' ./pkg/kernel/...
