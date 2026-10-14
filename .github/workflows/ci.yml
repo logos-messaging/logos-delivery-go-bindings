@@ -53,7 +53,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: ${{ matrix.os == 'windows-latest' && 'msys2 {0}' || 'bash' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -63,15 +66,50 @@ jobs:
           nimble-version: ${{ env.NIMBLE_VERSION }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Cache Nim dependencies and the library
+      # boringssl test paths overrun the 260-char limit from the default temp.
+      - name: Shorten TEMP path for nimble
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\T | Out-Null
+          "TEMP=C:\T" >> $env:GITHUB_ENV
+          "TMP=C:\T"  >> $env:GITHUB_ENV
+
+      - name: Allow long paths in git
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: git config --global core.longpaths true
+
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: MINGW64
+          path-type: inherit
+          install: make
+
+      # Native tools cannot read MSYS paths such as /d/a/...
+      - name: Use a Windows path for the library
+        if: runner.os == 'Windows'
+        run: |
+          echo "LIB_DIR=$(cygpath -m "$PWD/build")" >> "$GITHUB_ENV"
+          echo "$(cygpath -w "$PWD/build")" >> "$GITHUB_PATH"
+
+      # logos-delivery's nimcache lives in its package directory, under nimbledeps.
+      - name: Cache Nim dependencies
         uses: actions/cache@v4
         with:
-          # nimbinaries is global; without it the bootstrap grabs the newest Nim.
           path: |
             nimbledeps
             ~/.nimble/nimbinaries
-            build
-          key: liblogosdelivery-${{ matrix.os }}-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
+          key: nimbledeps-${{ matrix.os }}-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
+          restore-keys: nimbledeps-${{ matrix.os }}-${{ env.NIMBLE_VERSION }}-
+
+      # No restore-keys: make would take a stale library as up to date.
+      - name: Cache liblogosdelivery
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: liblogosdelivery-${{ matrix.os }}-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble', 'Makefile') }}
 
       - name: Resolve Nim dependencies
         run: make deps
@@ -126,6 +164,7 @@ jobs:
             nimbledeps
             ~/.nimble/nimbinaries
           key: nimbledeps-android-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
+          restore-keys: nimbledeps-android-${{ env.NIMBLE_VERSION }}-
 
       - name: Set up Android NDK
         id: ndk
@@ -179,7 +218,8 @@ jobs:
           path: |
             nimbledeps
             ~/.nimble/nimbinaries
-          key: nimbledeps-ios-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
+          key: nimbledeps-ios-${{ matrix.sdk }}-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
+          restore-keys: nimbledeps-ios-${{ matrix.sdk }}-${{ env.NIMBLE_VERSION }}-
 
       - name: Resolve Nim dependencies
         run: make deps

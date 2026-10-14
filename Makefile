@@ -6,11 +6,16 @@ GO ?= go
 
 LOGOS_DELIVERY_DIR = $(shell $(NIMBLE) path logos_delivery 2>/dev/null | tail -1)
 LIB_DIR ?= $(CURDIR)/build
-LIB_EXT ?= $(if $(filter Darwin,$(shell uname -s)),dylib,so)
+LIB_EXT ?= $(if $(filter Windows_NT,$(OS)),dll,$(if $(filter Darwin,$(shell uname -s)),dylib,so))
 LIB := $(LIB_DIR)/liblogosdelivery.$(LIB_EXT)
 
+# Windows has no -rpath; the loader uses PATH.
+ifneq ($(LIB_EXT),dll)
+    LIB_RPATH := -Wl,-rpath,$(LIB_DIR)
+endif
+
 export CGO_CFLAGS  = -I$(LOGOS_DELIVERY_DIR)/library
-export CGO_LDFLAGS = -L$(LIB_DIR) -llogosdelivery -Wl,-rpath,$(LIB_DIR)
+export CGO_LDFLAGS = -L$(LIB_DIR) -llogosdelivery $(LIB_RPATH)
 
 .PHONY: deps liblogosdelivery liblogosdelivery-android liblogosdelivery-ios build example test clean print-paths print-cgo
 
