@@ -190,9 +190,13 @@ jobs:
           ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
         run: make liblogosdelivery-android
 
+      # A different hash input keeps this off build-test's key on the same image.
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            go.mod
+            go.sum
 
       - name: Cross-build
         env:
