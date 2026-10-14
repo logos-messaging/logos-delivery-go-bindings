@@ -11,7 +11,7 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   GO_VERSION: '1.24'
@@ -19,8 +19,6 @@ env:
   GOFLAGS: -mod=mod
 
 jobs:
-  # The cgo preamble declares the C exports itself, so type-checking needs no
-  # liblogosdelivery and no Nim.
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -28,7 +26,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # golangci-lint-action caches on its own; this would take build-test's key.
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -63,12 +60,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # boringssl's test data in nimbledeps overruns MAX_PATH under the long workspace path.
+      # nimbledeps under the long workspace path overruns MAX_PATH.
       - name: Shorten the workspace path
         if: runner.os == 'Windows'
         shell: pwsh
         working-directory: ${{ github.workspace }}
-        run: New-Item -ItemType Junction -Path C:/w -Target $env:GITHUB_WORKSPACE | Out-Null
+        run: |
+          New-Item -ItemType Junction -Path C:/w -Target $env:GITHUB_WORKSPACE | Out-Null
+          "LIB_DIR=C:/w/build" >> $env:GITHUB_ENV
+          "C:\w\build" >> $env:GITHUB_PATH
 
       # No compiler here: Nimble installs the one logos-delivery `requires`.
       - uses: nim-lang/setup-nimble-action@v2
@@ -97,38 +97,33 @@ jobs:
           path-type: inherit
           install: make
 
-      # Native tools cannot read MSYS paths such as /d/a/...
-      - name: Use a Windows path for the library
-        if: runner.os == 'Windows'
-        run: |
-          echo "LIB_DIR=$(cygpath -m "$PWD/build")" >> "$GITHUB_ENV"
-          echo "$(cygpath -w "$PWD/build")" >> "$GITHUB_PATH"
+      - name: Cache liblogosdelivery
+        id: lib
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: liblogosdelivery-${{ matrix.os }}-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble', 'Makefile') }}
 
-      # logos-delivery's nimcache lives in its package directory, under nimbledeps.
       - name: Cache Nim dependencies
+        if: steps.lib.outputs.cache-hit != 'true'
         uses: actions/cache@v4
         with:
           path: |
             nimbledeps
             ~/.nimble/nimbinaries
           key: nimbledeps-${{ matrix.os }}-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
-          restore-keys: nimbledeps-${{ matrix.os }}-${{ env.NIMBLE_VERSION }}-
-
-      # No restore-keys: make would take a stale library as up to date.
-      - name: Cache liblogosdelivery
-        uses: actions/cache@v4
-        with:
-          path: build
-          key: liblogosdelivery-${{ matrix.os }}-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble', 'Makefile') }}
 
       - name: Resolve Nim dependencies
+        if: steps.lib.outputs.cache-hit != 'true'
         run: make deps
 
       - name: Build liblogosdelivery
+        if: steps.lib.outputs.cache-hit != 'true'
         run: make liblogosdelivery
 
+      # Without nimbledeps, `nimble path` prints an error into CGO_CFLAGS.
       - name: Export cgo flags
-        run: make print-cgo >> "$GITHUB_ENV"
+        run: make print-cgo ${{ steps.lib.outputs.cache-hit == 'true' && 'LOGOS_DELIVERY_DIR=' || '' }} >> "$GITHUB_ENV"
 
       - uses: actions/setup-go@v5
         with:
@@ -140,7 +135,6 @@ jobs:
       - name: Vet
         run: go vet ./...
 
-      # The library is not a Go input, so cached results would outlive a pin bump.
       - name: Test messaging
         run: go test -count=1 ./pkg/messaging/... ./internal/ffi/...
 
@@ -175,7 +169,6 @@ jobs:
             nimbledeps
             ~/.nimble/nimbinaries
           key: nimbledeps-android-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
-          restore-keys: nimbledeps-android-${{ env.NIMBLE_VERSION }}-
 
       - name: Set up Android NDK
         id: ndk
@@ -191,7 +184,6 @@ jobs:
           ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
         run: make liblogosdelivery-android
 
-      # A different hash input keeps this off build-test's key on the same image.
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -234,7 +226,6 @@ jobs:
             nimbledeps
             ~/.nimble/nimbinaries
           key: nimbledeps-ios-${{ matrix.sdk }}-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
-          restore-keys: nimbledeps-ios-${{ matrix.sdk }}-${{ env.NIMBLE_VERSION }}-
 
       - name: Resolve Nim dependencies
         run: make deps
