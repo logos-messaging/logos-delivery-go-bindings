@@ -28,11 +28,14 @@ requires "https://github.com/logos-messaging/logos-delivery#45910f37"
 
 ### Helpers
 
+# Windows `exec` prefers nim's bundled nimble.exe: https://github.com/status-im/status-go/issues/7941
+proc nimbleExe(): string = findExe("nimble").quoteShell
+
 proc nimblePkgDir(name: string): string =
   ## Where the dependency was installed. `nimble path` prints one line per
   ## installed version and exits 0 even when the package is missing, so take the
   ## line that holds the package's nimble file rather than trusting position.
-  let (output, _) = gorgeEx("nimble path " & name)
+  let (output, _) = gorgeEx(nimbleExe() & " path " & name)
   for line in output.strip().splitLines():
     let candidate = line.strip()
     if candidate.isAbsolute() and fileExists(candidate / (name & ".nimble")):
@@ -45,7 +48,7 @@ proc restoreLeopardTestSources() =
   ## workaround as logos-delivery's Leopard.mk, which only covers its own build.
   ## Every installed revision is patched: the dependency solve and
   ## logos-delivery's own task can pick different ones.
-  let (output, _) = gorgeEx("nimble path leopard")
+  let (output, _) = gorgeEx(nimbleExe() & " path leopard")
   for line in output.splitLines():
     let pkgDir = line.strip()
     if not pkgDir.isAbsolute() or not dirExists(pkgDir / "vendor" / "leopard"):
@@ -87,7 +90,7 @@ task liblogosdelivery, "Build the liblogosdelivery these bindings link against":
   putEnv("NIM_PARAMS", getEnv("NIM_PARAMS") & leopardCmakeParams())
   let pkgDir = nimblePkgDir("logos_delivery")
   withDir pkgDir:
-    exec "nimble liblogosdelivery"
+    exec nimbleExe() & " liblogosdelivery"
 
   let outDir = getEnv("LIBLOGOSDELIVERY_OUT")
   if outDir.len > 0:
@@ -107,7 +110,7 @@ proc runMobileTask(taskName, built: string) =
     " --path:\"" & nimblePkgDir("nat_traversal") & "\"")
   let pkgDir = nimblePkgDir("logos_delivery")
   withDir pkgDir:
-    exec "nimble " & taskName
+    exec nimbleExe() & " " & taskName
 
   let outDir = getEnv("LIBLOGOSDELIVERY_OUT")
   if outDir.len > 0:
