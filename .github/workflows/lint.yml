@@ -1,0 +1,45 @@
+name: lint
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GO_VERSION: '1.24'
+  GOFLAGS: -mod=mod
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: go mod tidy is clean
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Fetch the merge base
+        run: git fetch --no-tags origin master
+
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.4.0
+          # `config verify` fetches its schema on every run and times out.
+          verify: false
