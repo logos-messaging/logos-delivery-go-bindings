@@ -1,0 +1,209 @@
+name: ci
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GO_VERSION: '1.24'
+  NIMBLE_VERSION: '0.26.0'
+  GOFLAGS: -mod=mod
+
+jobs:
+  desktop:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: ${{ matrix.os == 'windows-latest' && 'msys2 {0}' || 'bash' }}
+        working-directory: ${{ matrix.os == 'windows-latest' && 'C:/w' || '.' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # nimbledeps under the long workspace path overruns MAX_PATH.
+      - name: Shorten the workspace path
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          New-Item -ItemType Junction -Path C:/w -Target $env:GITHUB_WORKSPACE | Out-Null
+          "LIB_DIR=C:/w/build" >> $env:GITHUB_ENV
+          "C:\w\build" >> $env:GITHUB_PATH
+
+      # No compiler here: Nimble installs the one logos-delivery `requires`.
+      - uses: nim-lang/setup-nimble-action@v2
+        with:
+          nimble-version: ${{ env.NIMBLE_VERSION }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # boringssl test paths overrun the 260-char limit from the default temp.
+      - name: Shorten TEMP path for nimble
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\T | Out-Null
+          "TEMP=C:\T" >> $env:GITHUB_ENV
+          "TMP=C:\T"  >> $env:GITHUB_ENV
+
+      - name: Allow long paths in git
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: git config --global core.longpaths true
+
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: MINGW64
+          path-type: inherit
+          install: make
+
+      - name: Cache liblogosdelivery
+        id: lib
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: liblogosdelivery-${{ matrix.os }}-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble', 'Makefile') }}
+
+      - name: Cache Nim dependencies
+        if: steps.lib.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            nimbledeps
+            ~/.nimble/nimbinaries
+          key: nimbledeps-${{ matrix.os }}-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
+
+      - name: Resolve Nim dependencies
+        if: steps.lib.outputs.cache-hit != 'true'
+        run: make deps
+
+      - name: Build liblogosdelivery
+        if: steps.lib.outputs.cache-hit != 'true'
+        run: make liblogosdelivery
+
+      # Without nimbledeps, `nimble path` prints an error into CGO_CFLAGS.
+      - name: Export cgo flags
+        run: make print-cgo ${{ steps.lib.outputs.cache-hit == 'true' && 'LOGOS_DELIVERY_DIR=' || '' }} >> "$GITHUB_ENV"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test messaging
+        run: go test -count=1 ./pkg/messaging/... ./internal/ffi/...
+
+      # Needs outbound connectivity, so only compiled.
+      - name: Compile messaging integration tests
+        run: go test -tags integration -run '^$' ./pkg/messaging/...
+
+      - name: Test kernel
+        run: go test -count=1 -timeout 20m ./pkg/kernel/...
+
+      - name: Compile kernel stress tests
+        run: go test -tags stress -run '^$' ./pkg/kernel/...
+
+  android:
+    name: mobile (android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CPU: arm64
+      ABIDIR: arm64-v8a
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: nim-lang/setup-nimble-action@v2
+        with:
+          nimble-version: ${{ env.NIMBLE_VERSION }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Nim dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            nimbledeps
+            ~/.nimble/nimbinaries
+          key: nimbledeps-android-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
+
+      - name: Set up Android NDK
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+
+      - name: Resolve Nim dependencies
+        run: make deps
+
+      - name: Build liblogosdelivery
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+        run: make liblogosdelivery-android
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            go.mod
+            go.sum
+
+      - name: Cross-build
+        env:
+          NDK: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang" \
+          CGO_ENABLED=1 GOOS=android GOARCH=arm64 \
+          CGO_LDFLAGS="-L$PWD/build/android/$ABIDIR -llogosdelivery" \
+            go build ./...
+
+  ios:
+    name: mobile (ios)
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      IOS_SDK: iphoneos
+      IOS_ARCH: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: nim-lang/setup-nimble-action@v2
+        with:
+          nimble-version: ${{ env.NIMBLE_VERSION }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Nim dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            nimbledeps
+            ~/.nimble/nimbinaries
+          key: nimbledeps-ios-${{ env.NIMBLE_VERSION }}-${{ hashFiles('logos_delivery_go_bindings.nimble') }}
+
+      - name: Resolve Nim dependencies
+        run: make deps
+
+      - name: Build liblogosdelivery
+        run: IOS_SDK_PATH="$(xcrun --sdk "$IOS_SDK" --show-sdk-path)" make liblogosdelivery-ios
+
+      - name: Check the library
+        run: |
+          lipo -info "build/ios/$IOS_SDK-$IOS_ARCH/liblogosdelivery.a"
+          otool -l "build/ios/$IOS_SDK-$IOS_ARCH/liblogosdelivery.a" | grep -m1 -A4 LC_BUILD_VERSION

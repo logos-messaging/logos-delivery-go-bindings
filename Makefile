@@ -6,13 +6,18 @@ GO ?= go
 
 LOGOS_DELIVERY_DIR = $(shell $(NIMBLE) path logos_delivery 2>/dev/null | tail -1)
 LIB_DIR ?= $(CURDIR)/build
-LIB_EXT ?= $(if $(filter Darwin,$(shell uname -s)),dylib,so)
+LIB_EXT ?= $(if $(filter Windows_NT,$(OS)),dll,$(if $(filter Darwin,$(shell uname -s)),dylib,so))
 LIB := $(LIB_DIR)/liblogosdelivery.$(LIB_EXT)
 
-export CGO_CFLAGS  = -I$(LOGOS_DELIVERY_DIR)/library
-export CGO_LDFLAGS = -L$(LIB_DIR) -llogosdelivery -Wl,-rpath,$(LIB_DIR)
+# Windows has no -rpath; the loader uses PATH.
+ifneq ($(LIB_EXT),dll)
+    LIB_RPATH := -Wl,-rpath,$(LIB_DIR)
+endif
 
-.PHONY: deps liblogosdelivery liblogosdelivery-android liblogosdelivery-ios build example test clean print-paths
+export CGO_CFLAGS  = -I$(LOGOS_DELIVERY_DIR)/library
+export CGO_LDFLAGS = -L$(LIB_DIR) -llogosdelivery $(LIB_RPATH)
+
+.PHONY: deps liblogosdelivery liblogosdelivery-android liblogosdelivery-ios build example test clean print-paths print-cgo
 
 deps: nimble.paths ##@build Resolve the Nim dependencies
 
@@ -50,6 +55,10 @@ test: $(LIB) ##@test Run the Go tests; TEST=<name> to select one
 print-paths:
 	@echo "LOGOS_DELIVERY_DIR: $(LOGOS_DELIVERY_DIR)"
 	@echo "LIB:                $(LIB)"
+
+print-cgo: ##@build Print the cgo flags, for a caller that runs Go itself
+	@echo 'CGO_CFLAGS=$(CGO_CFLAGS)'
+	@echo 'CGO_LDFLAGS=$(CGO_LDFLAGS)'
 
 clean:
 	@rm -f $(LIB)
