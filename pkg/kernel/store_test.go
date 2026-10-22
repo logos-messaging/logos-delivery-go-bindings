@@ -1255,8 +1255,9 @@ func TestStoredDuplicateMessage(t *testing.T) {
 	queryTimestamp := proto.Int64(time.Now().UnixNano())
 	var msg = node1.CreateMessage()
 	logDebug("Node1 is publishing two identical messages")
-	_, err = node1.Relay().Publish(context.Background(), DefaultPubsubTopic, msg)
+	msgHash, err := node1.Relay().Publish(context.Background(), DefaultPubsubTopic, msg)
 	require.NoError(t, err, "Failed to publish first message")
+	require.NoError(t, node2.VerifyMessageReceived(msg, msgHash), "Node2 did not receive the first message")
 
 	_, err = node2.Relay().Publish(context.Background(), DefaultPubsubTopic, msg)
 	// relay refuses to publish a message it has already seen
