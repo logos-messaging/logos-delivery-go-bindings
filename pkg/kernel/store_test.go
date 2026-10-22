@@ -1259,10 +1259,8 @@ func TestStoredDuplicateMessage(t *testing.T) {
 	require.NoError(t, err, "Failed to publish first message")
 
 	_, err = node2.Relay().Publish(context.Background(), DefaultPubsubTopic, msg)
-	// gossipsub drops an already-seen message, so the duplicate reaches no peer
-	if err != nil {
-		require.ErrorContains(t, err, "NoPeersToPublish", "Failed to publish second message")
-	}
+	// relay refuses to publish a message it has already seen
+	require.ErrorContains(t, err, "DuplicateMessage", "Second publish should be refused")
 
 	logDebug("Querying stored messages from Node2 using Node1")
 	storeQueryRequest := &common.StoreQueryRequest{

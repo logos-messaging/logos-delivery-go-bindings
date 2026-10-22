@@ -304,7 +304,7 @@ func TestSendmsgInvalidPayload(t *testing.T) {
 
 	logDebug("SenderNode is publishing an invalid message")
 	invalidMessage := &pb.WakuMessage{
-		Payload:      []byte{},
+		Payload:      make([]byte, 2*1024*1024),
 		ContentTopic: "test-content-topic",
 		Version:      proto.Uint32(0),
 		Timestamp:    proto.Int64(time.Now().UnixNano()),
