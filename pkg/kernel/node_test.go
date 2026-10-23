@@ -630,7 +630,6 @@ func TestStore(t *testing.T) {
 	// start node that will send the message
 	senderNodeWakuConfig := common.WakuConfig{
 		Relay:           true,
-		Store:           true,
 		LogLevel:        "DEBUG",
 		Discv5Discovery: false,
 		ClusterID:       16,
