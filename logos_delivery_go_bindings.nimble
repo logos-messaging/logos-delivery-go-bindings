@@ -61,24 +61,25 @@ proc restoreLeopardTestSources() =
 
 proc leopardCmakeParams(): string =
   ## Mirrors the Leopard-RS flags of logos-delivery's portable config.nims, which
-  ## is not installed with the package: position-independent, no -march=native,
-  ## and the SIMD baseline it needs instead. Windows keeps nim-leopard's own flags.
+  ## consumers skip with --skipParentCfg: position-independent, no -march=native,
+  ## the SIMD baseline it needs instead, and no OpenMP on macOS and Windows.
   if getEnv("NIM_PARAMS").contains("LeopardCmakeFlags"):
     return ""
+  let base =
+    when defined(macosx) or defined(windows): "-DCMAKE_BUILD_TYPE=Release -DENABLE_OPENMP=off"
+    else: "-DCMAKE_BUILD_TYPE=Release"
+  let cxxFlags =
+    when defined(amd64) or defined(i386):
+      when defined(macosx): " -DCMAKE_CXX_FLAGS=-march=haswell"
+      else: " -DCMAKE_CXX_FLAGS=-mssse3"
+    else: ""
+  result = " -d:\"LeopardCmakeFlags=" & base &
+    " -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCOMPILER_SUPPORTS_MARCH_NATIVE=FALSE" &
+    cxxFlags & "\""
   when defined(windows):
-    return ""
-  else:
-    let base =
-      when defined(macosx): "-DCMAKE_BUILD_TYPE=Release -DENABLE_OPENMP=off"
-      else: "-DCMAKE_BUILD_TYPE=Release"
-    let cxxFlags =
-      when defined(amd64) or defined(i386):
-        when defined(macosx): " -DCMAKE_CXX_FLAGS=-march=haswell"
-        else: " -DCMAKE_CXX_FLAGS=-mssse3"
-      else: ""
-    return " -d:\"LeopardCmakeFlags=" & base &
-      " -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCOMPILER_SUPPORTS_MARCH_NATIVE=FALSE" &
-      cxxFlags & "\""
+    # A quoted -G doesn't survive NIM_PARAMS, so set the generator here.
+    putEnv("CMAKE_GENERATOR", "MSYS Makefiles")
+    result.add " -d:LeopardExtraCompilerFlags=-fno-openmp -d:LeopardExtraLinkerFlags=-fno-openmp"
 
 ### Tasks
 
