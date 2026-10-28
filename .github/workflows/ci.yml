@@ -126,8 +126,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      CPU: arm64
-      ABIDIR: arm64-v8a
+      ARCH: arm64
     steps:
       - uses: actions/checkout@v4
 
@@ -171,7 +170,7 @@ jobs:
         run: |
           CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang" \
           CGO_ENABLED=1 GOOS=android GOARCH=arm64 \
-          CGO_LDFLAGS="-L$PWD/build/android/$ABIDIR -llogosdelivery" \
+          CGO_LDFLAGS="-L$PWD/build/android/$ARCH -llogosdelivery" \
             go build ./...
 
   ios:

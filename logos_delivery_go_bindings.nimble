@@ -117,10 +117,21 @@ proc runMobileTask(taskName, built: string) =
     mkDir outDir
     cpFile pkgDir / "build" / built, outDir / extractFilename(built)
 
-task liblogosdeliveryAndroid, "Build liblogosdelivery for Android":
-  ## Needs ANDROID_NDK_ROOT, CPU (arm64, amd64, i386, arm) and ABIDIR.
-  runMobileTask("libLogosDeliveryAndroid",
-    "android" / getEnv("ABIDIR") / "liblogosdelivery.so")
+proc androidAbi(arch: string): tuple[cpu, abiDir: string] =
+  ## Maps ARCH to the Nim CPU and the Android ABI directory logos-delivery expects.
+  case arch
+  of "arm64": ("arm64", "arm64-v8a")
+  of "arm": ("arm", "armeabi-v7a")
+  of "amd64", "x86_64": ("amd64", "x86_64")
+  of "i386", "x86": ("i386", "x86")
+  else: quit "Error: ARCH must be one of arm64, arm, amd64, x86_64, i386, x86"
+
+task liblogosdeliveryAndroid, "Build liblogosdelivery for Android; ARCH selects the architecture":
+  ## Needs ANDROID_NDK_ROOT and ARCH.
+  let (cpu, abiDir) = androidAbi(getEnv("ARCH"))
+  putEnv("CPU", cpu)
+  putEnv("ABIDIR", abiDir)
+  runMobileTask("libLogosDeliveryAndroid", "android" / abiDir / "liblogosdelivery.so")
 
 task liblogosdeliveryIOS, "Build liblogosdelivery for iOS":
   ## Needs IOS_SDK (iphoneos, iphonesimulator), IOS_ARCH and IOS_SDK_PATH.
