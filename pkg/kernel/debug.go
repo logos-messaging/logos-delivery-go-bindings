@@ -3,6 +3,7 @@ package kernel
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -105,4 +106,21 @@ func (d *Debug) Metrics() (string, error) {
 		return "", errors.New("kernel: metrics: empty response")
 	}
 	return metrics, nil
+}
+
+// MaxMessageSize returns the largest message, in bytes, the node accepts.
+func (d *Debug) MaxMessageSize() (uint64, error) {
+	if err := d.n.check(); err != nil {
+		return 0, err
+	}
+
+	size, err := ffi.GetNodeInfo(d.n.h, "MaxMessageSize")
+	if err != nil {
+		return 0, fmt.Errorf("kernel: max message size: %w", err)
+	}
+	n, err := strconv.ParseUint(size, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("kernel: max message size %q: %w", size, err)
+	}
+	return n, nil
 }

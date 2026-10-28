@@ -121,3 +121,17 @@ func TestDoubleStop(t *testing.T) {
 	require.NoError(t, node.Stop())
 
 }
+
+func TestMaxMessageSize(t *testing.T) {
+	requiresNode(t)
+
+	nodeCfg := DefaultWakuConfig
+	nodeCfg.MaxMessageSize = "100KiB"
+	node, err := StartWakuNode(&nodeCfg)
+	require.NoError(t, err)
+	defer func() { _ = node.Close() }()
+
+	size, err := node.Debug().MaxMessageSize()
+	require.NoError(t, err)
+	require.Equal(t, uint64(100*1024), size)
+}

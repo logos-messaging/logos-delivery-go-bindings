@@ -36,6 +36,7 @@ int logosdelivery_stop_node(void* ctx, FFICallback callback, void* userData, con
 int logosdelivery_subscribe(void* ctx, FFICallback callback, void* userData, const uint8_t* req, size_t reqLen);
 int logosdelivery_unsubscribe(void* ctx, FFICallback callback, void* userData, const uint8_t* req, size_t reqLen);
 int logosdelivery_send(void* ctx, FFICallback callback, void* userData, const uint8_t* req, size_t reqLen);
+int logosdelivery_get_node_info(void* ctx, FFICallback callback, void* userData, const uint8_t* req, size_t reqLen);
 uint64_t logosdelivery_add_event_listener(void* ctx, const char* eventName, FFICallback callback, void* userData);
 int logosdelivery_remove_event_listener(void* ctx, uint64_t listenerId);
 
@@ -311,4 +312,13 @@ func RemoveEventListener(h Handle, id ListenerID) error {
 		return fmt.Errorf("failed to remove event listener %d", uint64(id))
 	}
 	return nil
+}
+
+// GetNodeInfo returns the node info item named id (logos-delivery's
+// NodeInfoId, e.g. "MaxMessageSize") as a plain string.
+func GetNodeInfo(h Handle, id string) (string, error) {
+	req := struct {
+		NodeInfoID string `cbor:"nodeInfoId"`
+	}{id}
+	return call(C.logosRawFn(C.logosdelivery_get_node_info), h, req)
 }
