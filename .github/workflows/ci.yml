@@ -127,7 +127,6 @@ jobs:
     timeout-minutes: 60
     env:
       CPU: arm64
-      ABIDIR: arm64-v8a
     steps:
       - uses: actions/checkout@v4
 
@@ -171,7 +170,7 @@ jobs:
         run: |
           CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang" \
           CGO_ENABLED=1 GOOS=android GOARCH=arm64 \
-          CGO_LDFLAGS="-L$PWD/build/android/$ABIDIR -llogosdelivery" \
+          CGO_LDFLAGS="-L$PWD/build/android/$CPU -llogosdelivery" \
             go build ./...
 
   ios:
@@ -201,7 +200,7 @@ jobs:
         run: make deps
 
       - name: Build liblogosdelivery
-        run: IOS_SDK_PATH="$(xcrun --sdk "$IOS_SDK" --show-sdk-path)" make liblogosdelivery-ios
+        run: make liblogosdelivery-ios
 
       - name: Check the library
         run: |

@@ -24,7 +24,7 @@ skipDirs = @["pkg", "internal", "examples", "tools", "nimble"]
 
 ### Dependencies
 requires "nim >= 2.2.4"
-requires "https://github.com/logos-messaging/logos-delivery#a0087c18"
+requires "https://github.com/logos-messaging/logos-delivery#bfb93d27"
 
 ### Helpers
 
@@ -92,17 +92,8 @@ task liblogosdelivery, "Build the liblogosdelivery these bindings link against":
   withDir pkgDir:
     exec nimbleExe() & " liblogosdelivery"
 
-  let outDir = getEnv("LIBLOGOSDELIVERY_OUT")
-  if outDir.len > 0:
-    let lib =
-      when defined(windows): "liblogosdelivery.dll"
-      else: DynlibFormat % "logosdelivery"
-    mkDir outDir
-    cpFile pkgDir / "build" / lib, outDir / lib
-
-proc runMobileTask(taskName, built: string) =
-  ## Delegates to logos-delivery's mobile task, then copies `built`, relative to
-  ## its build/ directory, to LIBLOGOSDELIVERY_OUT. config.nims, installed with
+proc runMobileTask(taskName: string) =
+  ## Delegates to logos-delivery's mobile task. config.nims, installed with
   ## logos-delivery, supplies the cross-compile flags, so leopardCmakeParams is
   ## not added. nat_traversal's root goes on NIM_PARAMS for the task to find.
   restoreLeopardTestSources()
@@ -112,17 +103,10 @@ proc runMobileTask(taskName, built: string) =
   withDir pkgDir:
     exec nimbleExe() & " " & taskName
 
-  let outDir = getEnv("LIBLOGOSDELIVERY_OUT")
-  if outDir.len > 0:
-    mkDir outDir
-    cpFile pkgDir / "build" / built, outDir / extractFilename(built)
-
 task liblogosdeliveryAndroid, "Build liblogosdelivery for Android":
-  ## Needs ANDROID_NDK_ROOT, CPU (arm64, amd64, i386, arm) and ABIDIR.
-  runMobileTask("libLogosDeliveryAndroid",
-    "android" / getEnv("ABIDIR") / "liblogosdelivery.so")
+  ## Needs ANDROID_NDK_ROOT and CPU (arm64, amd64, i386, arm).
+  runMobileTask("libLogosDeliveryAndroid")
 
 task liblogosdeliveryIOS, "Build liblogosdelivery for iOS":
-  ## Needs IOS_SDK (iphoneos, iphonesimulator), IOS_ARCH and IOS_SDK_PATH.
-  runMobileTask("libLogosDeliveryIOS",
-    "ios" / (getEnv("IOS_SDK") & "-" & getEnv("IOS_ARCH")) / "liblogosdelivery.a")
+  ## Needs IOS_SDK (iphoneos, iphonesimulator) and IOS_ARCH.
+  runMobileTask("libLogosDeliveryIOS")

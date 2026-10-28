@@ -31,11 +31,11 @@ $(LIB): | nimble.paths
 
 liblogosdelivery: $(LIB) ##@build Build liblogosdelivery from the Nimble dependency
 
-liblogosdelivery-android: | nimble.paths ##@build Build liblogosdelivery for Android; set ANDROID_NDK_ROOT, CPU and ABIDIR
-	LIBLOGOSDELIVERY_OUT="$(LIB_DIR)/android/$(ABIDIR)" NIM_PARAMS="$$NIM_PARAMS -d:disable_rln" \
+liblogosdelivery-android: | nimble.paths ##@build Build liblogosdelivery for Android; set ANDROID_NDK_ROOT and CPU
+	LIBLOGOSDELIVERY_OUT="$(LIB_DIR)/android/$(CPU)" NIM_PARAMS="$$NIM_PARAMS -d:disable_rln" \
 		$(NIMBLE) liblogosdeliveryAndroid
 
-liblogosdelivery-ios: | nimble.paths ##@build Build liblogosdelivery for iOS; set IOS_SDK, IOS_ARCH and IOS_SDK_PATH
+liblogosdelivery-ios: | nimble.paths ##@build Build liblogosdelivery for iOS; set IOS_SDK and IOS_ARCH
 	LIBLOGOSDELIVERY_OUT="$(LIB_DIR)/ios/$(IOS_SDK)-$(IOS_ARCH)" NIM_PARAMS="$$NIM_PARAMS -d:disable_rln" \
 		$(NIMBLE) liblogosdeliveryIOS
 
