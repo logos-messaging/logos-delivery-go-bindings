@@ -41,17 +41,11 @@ minimum logos-delivery its C ABI works against, so a consumer picks the revision
 without a release here.
 
 ```sh
-nimble setup                # resolve logos-delivery at the pinned revision
-nimble liblogosdelivery     # build it, via logos-delivery's own build task
+make deps                   # resolve logos-delivery at the pinned revision
+make liblogosdelivery       # build it, via logos-delivery's plain nim entry
 ```
 
-The library is written to logos-delivery's package directory. Set `LIBLOGOSDELIVERY_OUT` to have it
-copied somewhere of your choosing, and pass `NIM_PARAMS` for build defines — `-d:disable_rln` builds
-without zerokit, so no Rust toolchain is needed:
-
-```sh
-LIBLOGOSDELIVERY_OUT="$PWD/build" NIM_PARAMS="-d:disable_rln" nimble liblogosdelivery
-```
+The library is written to `build/`. The Makefile passes `-d:disable_rln`, which builds without zerokit, so no Rust toolchain is needed.
 
 Then point cgo at the headers and the library:
 
