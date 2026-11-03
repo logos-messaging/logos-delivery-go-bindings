@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -123,4 +124,29 @@ func (d *Debug) MaxMessageSize() (uint64, error) {
 		return 0, fmt.Errorf("kernel: max message size %q: %w", size, err)
 	}
 	return n, nil
+}
+
+// StoreNodes returns the store nodes of the node's network preset.
+func (d *Debug) StoreNodes() ([]multiaddr.Multiaddr, error) {
+	if err := d.n.check(); err != nil {
+		return nil, err
+	}
+
+	nodesJSON, err := ffi.GetNodeInfo(d.n.h, "StoreNodes")
+	if err != nil {
+		return nil, fmt.Errorf("kernel: store nodes: %w", err)
+	}
+	var addrs []string
+	if err := json.Unmarshal([]byte(nodesJSON), &addrs); err != nil {
+		return nil, fmt.Errorf("kernel: store nodes %q: %w", nodesJSON, err)
+	}
+	nodes := make([]multiaddr.Multiaddr, 0, len(addrs))
+	for _, addr := range addrs {
+		ma, err := multiaddr.NewMultiaddr(addr)
+		if err != nil {
+			return nil, fmt.Errorf("kernel: store node %q: %w", addr, err)
+		}
+		nodes = append(nodes, ma)
+	}
+	return nodes, nil
 }

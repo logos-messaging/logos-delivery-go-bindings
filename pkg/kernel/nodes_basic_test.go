@@ -135,3 +135,15 @@ func TestMaxMessageSize(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(100*1024), size)
 }
+
+func TestStoreNodesComeFromThePreset(t *testing.T) {
+	requiresNode(t)
+
+	node, err := New(Config{Preset: PresetStatusProd, MessagingOverrides: Overrides{"tcp-port": 0}})
+	require.NoError(t, err)
+	defer func() { _ = node.Close() }()
+
+	nodes, err := node.Debug().StoreNodes()
+	require.NoError(t, err)
+	require.NotEmpty(t, nodes)
+}
