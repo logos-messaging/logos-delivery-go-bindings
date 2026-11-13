@@ -44,7 +44,7 @@ jobs:
           "C:\w\build" >> $env:GITHUB_PATH
 
       # No compiler here: Nimble installs the one logos-delivery `requires`.
-      - uses: nim-lang/setup-nimble-action@v2
+      - uses: nim-lang/setup-nimble-action@a131f58ccfd21bc926d1fee0cffabee76898dfcf # v2.1.0
         with:
           nimble-version: ${{ env.NIMBLE_VERSION }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -131,7 +131,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: nim-lang/setup-nimble-action@v2
+      - uses: nim-lang/setup-nimble-action@a131f58ccfd21bc926d1fee0cffabee76898dfcf # v2.1.0
         with:
           nimble-version: ${{ env.NIMBLE_VERSION }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -184,7 +184,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: nim-lang/setup-nimble-action@v2
+      - uses: nim-lang/setup-nimble-action@a131f58ccfd21bc926d1fee0cffabee76898dfcf # v2.1.0
         with:
           nimble-version: ${{ env.NIMBLE_VERSION }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
