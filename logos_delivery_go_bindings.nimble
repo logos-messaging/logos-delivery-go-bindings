@@ -22,7 +22,7 @@ skipDirs = @["pkg", "internal", "examples", "tools", "nimble"]
 
 ### Dependencies
 requires "nim >= 2.2.6"
-requires "https://github.com/logos-messaging/logos-delivery#e03b9754"
+requires "https://github.com/logos-messaging/logos-delivery#eca8ce5c"
 
 # Leopard-RS (via nim-segmentation) at the revision logos-delivery locks,
 # which configures it without its test executables.

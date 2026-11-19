@@ -116,7 +116,6 @@ type MessageReceivedEvent struct {
 // budget of the current epoch is spent. The message stays queued and goes out
 // once the budget refills. It is emitted at most once per send.
 type MessageQueuedEvent struct {
-	RequestID   RequestID
 	MessageHash string
 }
 
@@ -124,20 +123,17 @@ type MessageQueuedEvent struct {
 // the MessagePropagatedEvent, and only when the node validates its sends with
 // store.
 type MessageSentEvent struct {
-	RequestID   RequestID
 	MessageHash string
 }
 
 // MessagePropagatedEvent is emitted when a message has reached neighbouring
 // nodes on the network.
 type MessagePropagatedEvent struct {
-	RequestID   RequestID
 	MessageHash string
 }
 
 // MessageErrorEvent is emitted when sending or propagating a message fails.
 type MessageErrorEvent struct {
-	RequestID   RequestID
 	MessageHash string
 	Err         string
 }
@@ -246,37 +242,33 @@ func decodeEvent(eventJSON string) (Event, error) {
 
 	case "message_queued":
 		var e struct {
-			RequestID   string `json:"requestId"`
 			MessageHash string `json:"messageHash"`
 		}
 		if err := decode(&e); err != nil {
 			return nil, err
 		}
-		return MessageQueuedEvent{RequestID: RequestID(e.RequestID), MessageHash: e.MessageHash}, nil
+		return MessageQueuedEvent{MessageHash: e.MessageHash}, nil
 
 	case "message_sent":
 		var e struct {
-			RequestID   string `json:"requestId"`
 			MessageHash string `json:"messageHash"`
 		}
 		if err := decode(&e); err != nil {
 			return nil, err
 		}
-		return MessageSentEvent{RequestID: RequestID(e.RequestID), MessageHash: e.MessageHash}, nil
+		return MessageSentEvent{MessageHash: e.MessageHash}, nil
 
 	case "message_propagated":
 		var e struct {
-			RequestID   string `json:"requestId"`
 			MessageHash string `json:"messageHash"`
 		}
 		if err := decode(&e); err != nil {
 			return nil, err
 		}
-		return MessagePropagatedEvent{RequestID: RequestID(e.RequestID), MessageHash: e.MessageHash}, nil
+		return MessagePropagatedEvent{MessageHash: e.MessageHash}, nil
 
 	case "message_error":
 		var e struct {
-			RequestID   string `json:"requestId"`
 			MessageHash string `json:"messageHash"`
 			Error       string `json:"error"`
 		}
@@ -284,7 +276,6 @@ func decodeEvent(eventJSON string) (Event, error) {
 			return nil, err
 		}
 		return MessageErrorEvent{
-			RequestID:   RequestID(e.RequestID),
 			MessageHash: e.MessageHash,
 			Err:         e.Error,
 		}, nil

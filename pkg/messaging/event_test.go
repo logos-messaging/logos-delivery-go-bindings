@@ -13,10 +13,10 @@ import (
 const (
 	connectionStatusJSON    = `{"eventType":"connection_status_change","connectionStatus":"Connected"}`
 	messageReceivedJSON     = `{"eventType":"message_received","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118","message":{"payload":[104,101,108,108,111],"contentTopic":"/logos-delivery-go-bindings/1/raw/proto","meta":[],"version":0,"timestamp":1787098057353072384,"ephemeral":false,"proof":[]}}`
-	messagePropagatedJSON   = `{"eventType":"message_propagated","requestId":"f9620781ac7c85234b41","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118"}`
-	messageSentJSON         = `{"eventType":"message_sent","requestId":"f9620781ac7c85234b41","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118"}`
-	messageErrorJSON        = `{"eventType":"message_error","requestId":"f9620781ac7c85234b41","messageHash":"0x2700","error":"Unable to send within retry time window"}`
-	messageQueuedJSON       = `{"eventType":"message_queued","requestId":"ad0f8267f7bd5a8f14c5","messageHash":"0xd70d4163f3850e8483af6c995ada9d1edac6d0a8d98ae4cd8180ce9c8fc42098"}`
+	messagePropagatedJSON   = `{"eventType":"message_propagated","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118"}`
+	messageSentJSON         = `{"eventType":"message_sent","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118"}`
+	messageErrorJSON        = `{"eventType":"message_error","messageHash":"0x2700","error":"Unable to send within retry time window"}`
+	messageQueuedJSON       = `{"eventType":"message_queued","messageHash":"0xd70d4163f3850e8483af6c995ada9d1edac6d0a8d98ae4cd8180ce9c8fc42098"}`
 	messageReceivedLiveJSON = `{"eventType":"message_received","messageHash":"0x8606984c05869f0a337bdabfe955a94ba4ee627acebcc8d1e432d6cf9fa646a3","message":{"payload":"aGVsbG8=","contentTopic":"/logos-delivery-go-bindings/1/capture/proto","version":0,"timestamp":1791611557977488640,"ephemeral":false,"meta":"","proof":""},"source":"live"}`
 )
 
@@ -51,22 +51,22 @@ func TestDecodeMessageReceived(t *testing.T) {
 }
 
 func TestDecodeSendLifecycleEvents(t *testing.T) {
-	const requestID = RequestID("f9620781ac7c85234b41")
+	const hash = "0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118"
 
 	sent, err := decodeEvent(messageSentJSON)
 	if err != nil {
 		t.Fatalf("decodeEvent(sent): %v", err)
 	}
-	if e, ok := sent.(MessageSentEvent); !ok || e.RequestID != requestID {
-		t.Errorf("got %#v, want MessageSentEvent with request id %s", sent, requestID)
+	if e, ok := sent.(MessageSentEvent); !ok || e.MessageHash != hash {
+		t.Errorf("got %#v, want MessageSentEvent with hash %s", sent, hash)
 	}
 
 	propagated, err := decodeEvent(messagePropagatedJSON)
 	if err != nil {
 		t.Fatalf("decodeEvent(propagated): %v", err)
 	}
-	if e, ok := propagated.(MessagePropagatedEvent); !ok || e.RequestID != requestID {
-		t.Errorf("got %#v, want MessagePropagatedEvent with request id %s", propagated, requestID)
+	if e, ok := propagated.(MessagePropagatedEvent); !ok || e.MessageHash != hash {
+		t.Errorf("got %#v, want MessagePropagatedEvent with hash %s", propagated, hash)
 	}
 
 	failed, err := decodeEvent(messageErrorJSON)
@@ -77,8 +77,8 @@ func TestDecodeSendLifecycleEvents(t *testing.T) {
 	if !ok {
 		t.Fatalf("got %T, want MessageErrorEvent", failed)
 	}
-	if e.RequestID != requestID {
-		t.Errorf("RequestID = %s, want %s", e.RequestID, requestID)
+	if want := "0x2700"; e.MessageHash != want {
+		t.Errorf("MessageHash = %q, want %q", e.MessageHash, want)
 	}
 	if want := "Unable to send within retry time window"; e.Err != want {
 		t.Errorf("Err = %q, want %q", e.Err, want)
@@ -178,9 +178,6 @@ func TestDecodeMessageQueued(t *testing.T) {
 	e, ok := ev.(MessageQueuedEvent)
 	if !ok {
 		t.Fatalf("got %T, want MessageQueuedEvent", ev)
-	}
-	if want := RequestID("ad0f8267f7bd5a8f14c5"); e.RequestID != want {
-		t.Errorf("RequestID = %s, want %s", e.RequestID, want)
 	}
 	if want := "0xd70d4163f3850e8483af6c995ada9d1edac6d0a8d98ae4cd8180ce9c8fc42098"; e.MessageHash != want {
 		t.Errorf("MessageHash = %q, want %q", e.MessageHash, want)

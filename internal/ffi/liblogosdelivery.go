@@ -254,8 +254,8 @@ func Unsubscribe(h Handle, contentTopic string) error {
 }
 
 // Send sends a message (JSON: {contentTopic, payload(base64), ephemeral}) and
-// returns the request id used to correlate later send events.
-func Send(h Handle, messageJSON string) (requestID string, err error) {
+// returns its message hash, which the later send events carry too.
+func Send(h Handle, messageJSON string) (messageHash string, err error) {
 	req := struct {
 		MessageJSON string `cbor:"messageJson"`
 	}{messageJSON}
