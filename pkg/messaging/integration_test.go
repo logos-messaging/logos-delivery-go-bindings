@@ -63,23 +63,24 @@ func TestSendReceiveRoundTrip(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	requestID, err := client.Send(ctx, contentTopic, payload, false)
+	hash, err := client.Send(ctx, contentTopic, payload, false)
 	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	if requestID == "" {
-		t.Fatal("Send returned an empty request id")
+	if len(hash) != 66 {
+		t.Fatalf("Send returned %q, want 0x and 64 hex digits", hash)
 	}
 
+	var received, propagated bool
 	waitFor(t, client, 60*time.Second, func(ev Event) bool {
-		e, ok := ev.(MessageReceivedEvent)
-		return ok && e.Message.ContentTopic == contentTopic && bytes.Equal(e.Message.Payload, payload)
-	}, "the published message back on Events()")
-
-	waitFor(t, client, 60*time.Second, func(ev Event) bool {
-		e, ok := ev.(MessagePropagatedEvent)
-		return ok && e.RequestID == requestID
-	}, "a propagation confirmation for the sent request id")
+		switch e := ev.(type) {
+		case MessageReceivedEvent:
+			received = received || (e.MessageHash == hash && bytes.Equal(e.Message.Payload, payload))
+		case MessagePropagatedEvent:
+			propagated = propagated || e.MessageHash == hash
+		}
+		return received && propagated
+	}, "the published message back on Events() and its propagation, both with the hash Send returned")
 }
 
 // waitFor drains the event stream until match accepts an event or time runs out.

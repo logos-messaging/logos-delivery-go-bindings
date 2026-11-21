@@ -11,7 +11,6 @@ import (
 // eventType each event's JSON carries.
 const (
 	wireMessageReceived        = "onMessageReceived"
-	wireMessageQueued          = "onMessageQueued"
 	wireMessageSent            = "onMessageSent"
 	wireMessagePropagated      = "onMessagePropagated"
 	wireMessageError           = "onMessageError"
@@ -22,7 +21,6 @@ const (
 func messagingEvents() []string {
 	return []string{
 		wireMessageReceived,
-		wireMessageQueued,
 		wireMessageSent,
 		wireMessagePropagated,
 		wireMessageError,
@@ -112,33 +110,34 @@ type MessageReceivedEvent struct {
 	Source      MessageSource
 }
 
-// MessageQueuedEvent is emitted when a send is held back because the rate-limit
-// budget of the current epoch is spent. The message stays queued and goes out
-// once the budget refills. It is emitted at most once per send.
-type MessageQueuedEvent struct {
-	RequestID   RequestID
-	MessageHash string
-}
-
-// MessageSentEvent is emitted when a store node confirms a message. It follows
-// the MessagePropagatedEvent, and only when the node validates its sends with
-// store.
+// MessageSentEvent is emitted when the node confirms the delivery of a message:
+// a store node confirms it, or, for a send over mix, the mix exit's reply. It
+// follows the MessagePropagatedEvent, and comes only with the reliability
+// option on and never for an ephemeral message.
 type MessageSentEvent struct {
-	RequestID   RequestID
 	MessageHash string
 }
 
 // MessagePropagatedEvent is emitted when a message has reached neighbouring
 // nodes on the network.
 type MessagePropagatedEvent struct {
-	RequestID   RequestID
 	MessageHash string
 }
 
-// MessageErrorEvent is emitted when sending or propagating a message fails.
+// MessageErrorKind tells why a message that Send accepted failed.
+type MessageErrorKind string
+
+const (
+	// NotPropagated: no peer took the message within the delivery window.
+	NotPropagated MessageErrorKind = "NotPropagated"
+	// NotStored: the message propagated, but no store node reported it.
+	NotStored MessageErrorKind = "NotStored"
+)
+
+// MessageErrorEvent is emitted when a message that Send accepted fails.
 type MessageErrorEvent struct {
-	RequestID   RequestID
 	MessageHash string
+	Kind        MessageErrorKind
 	Err         string
 }
 
@@ -149,7 +148,6 @@ type ConnectionStatusEvent struct {
 }
 
 func (MessageReceivedEvent) isMessagingEvent()   {}
-func (MessageQueuedEvent) isMessagingEvent()     {}
 func (MessageSentEvent) isMessagingEvent()       {}
 func (MessagePropagatedEvent) isMessagingEvent() {}
 func (MessageErrorEvent) isMessagingEvent()      {}
@@ -244,48 +242,36 @@ func decodeEvent(eventJSON string) (Event, error) {
 			Source: MessageSource(e.Source),
 		}, nil
 
-	case "message_queued":
-		var e struct {
-			RequestID   string `json:"requestId"`
-			MessageHash string `json:"messageHash"`
-		}
-		if err := decode(&e); err != nil {
-			return nil, err
-		}
-		return MessageQueuedEvent{RequestID: RequestID(e.RequestID), MessageHash: e.MessageHash}, nil
-
 	case "message_sent":
 		var e struct {
-			RequestID   string `json:"requestId"`
 			MessageHash string `json:"messageHash"`
 		}
 		if err := decode(&e); err != nil {
 			return nil, err
 		}
-		return MessageSentEvent{RequestID: RequestID(e.RequestID), MessageHash: e.MessageHash}, nil
+		return MessageSentEvent{MessageHash: e.MessageHash}, nil
 
 	case "message_propagated":
 		var e struct {
-			RequestID   string `json:"requestId"`
 			MessageHash string `json:"messageHash"`
 		}
 		if err := decode(&e); err != nil {
 			return nil, err
 		}
-		return MessagePropagatedEvent{RequestID: RequestID(e.RequestID), MessageHash: e.MessageHash}, nil
+		return MessagePropagatedEvent{MessageHash: e.MessageHash}, nil
 
 	case "message_error":
 		var e struct {
-			RequestID   string `json:"requestId"`
 			MessageHash string `json:"messageHash"`
+			Kind        string `json:"kind"`
 			Error       string `json:"error"`
 		}
 		if err := decode(&e); err != nil {
 			return nil, err
 		}
 		return MessageErrorEvent{
-			RequestID:   RequestID(e.RequestID),
 			MessageHash: e.MessageHash,
+			Kind:        MessageErrorKind(e.Kind),
 			Err:         e.Error,
 		}, nil
 
