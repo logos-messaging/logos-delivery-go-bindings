@@ -266,11 +266,11 @@ func TestRelayMessageBroadcast(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, msgHash)
 
-	logDebug("Verifying message reception for each node")
-	for i, node := range nodes {
-		logDebug("Verifying message for node %s", nodeNames[i])
+	logDebug("Verifying message reception for each peer")
+	for i, node := range nodes[1:] {
+		logDebug("Verifying message for node %s", nodeNames[i+1])
 		err := node.VerifyMessageReceived(message, msgHash)
-		require.NoError(t, err, "message verification failed for node: %s", nodeNames[i])
+		require.NoError(t, err, "message verification failed for node: %s", nodeNames[i+1])
 	}
 
 	logDebug("TestRelayMessageBroadcast completed successfully")

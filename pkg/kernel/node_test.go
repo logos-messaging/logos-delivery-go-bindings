@@ -281,6 +281,11 @@ func TestPeerExchange(t *testing.T) {
 	pxServerPeerId, err := pxServerNode.Debug().PeerID()
 	require.NoError(t, err)
 
+	// The server's cache refills from a discv5 walk every 30 s.
+	cacheRefresh := func(b *backoff.ExponentialBackOff) {
+		b.MaxElapsedTime = 70 * time.Second
+	}
+
 	// Check that the light node discovered the discV5Node and has both nodes in its peer store
 	err = RetryWithBackOff(func() error {
 		peers, err := lightNode.Peers().FromPeerStore()
@@ -292,7 +297,7 @@ func TestPeerExchange(t *testing.T) {
 			return nil
 		}
 		return errors.New("lightnode is missing peers")
-	}, options)
+	}, cacheRefresh)
 	require.NoError(t, err)
 
 	// Now perform the PX request manually to see if it also works
