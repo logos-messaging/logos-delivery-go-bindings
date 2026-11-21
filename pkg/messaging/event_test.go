@@ -15,8 +15,7 @@ const (
 	messageReceivedJSON     = `{"eventType":"message_received","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118","message":{"payload":[104,101,108,108,111],"contentTopic":"/logos-delivery-go-bindings/1/raw/proto","meta":[],"version":0,"timestamp":1787098057353072384,"ephemeral":false,"proof":[]}}`
 	messagePropagatedJSON   = `{"eventType":"message_propagated","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118"}`
 	messageSentJSON         = `{"eventType":"message_sent","messageHash":"0x270090e9d88219b9e8f8a51820664ff2a972e9e101cdd87b584d547d40582118"}`
-	messageErrorJSON        = `{"eventType":"message_error","messageHash":"0x2700","error":"Unable to send within retry time window"}`
-	messageQueuedJSON       = `{"eventType":"message_queued","messageHash":"0xd70d4163f3850e8483af6c995ada9d1edac6d0a8d98ae4cd8180ce9c8fc42098"}`
+	messageErrorJSON        = `{"eventType":"message_error","messageHash":"0x2700","kind":"NotPropagated","error":"Unable to send within retry time window"}`
 	messageReceivedLiveJSON = `{"eventType":"message_received","messageHash":"0x8606984c05869f0a337bdabfe955a94ba4ee627acebcc8d1e432d6cf9fa646a3","message":{"payload":"aGVsbG8=","contentTopic":"/logos-delivery-go-bindings/1/capture/proto","version":0,"timestamp":1791611557977488640,"ephemeral":false,"meta":"","proof":""},"source":"live"}`
 )
 
@@ -79,6 +78,9 @@ func TestDecodeSendLifecycleEvents(t *testing.T) {
 	}
 	if want := "0x2700"; e.MessageHash != want {
 		t.Errorf("MessageHash = %q, want %q", e.MessageHash, want)
+	}
+	if e.Kind != NotPropagated {
+		t.Errorf("Kind = %q, want %q", e.Kind, NotPropagated)
 	}
 	if want := "Unable to send within retry time window"; e.Err != want {
 		t.Errorf("Err = %q, want %q", e.Err, want)
@@ -167,19 +169,5 @@ func TestDecodeMessageReceivedSource(t *testing.T) {
 	}
 	if !bytes.Equal(e.Message.Payload, []byte("hello")) {
 		t.Errorf("Payload = %q, want %q", e.Message.Payload, "hello")
-	}
-}
-
-func TestDecodeMessageQueued(t *testing.T) {
-	ev, err := decodeEvent(messageQueuedJSON)
-	if err != nil {
-		t.Fatalf("decodeEvent: %v", err)
-	}
-	e, ok := ev.(MessageQueuedEvent)
-	if !ok {
-		t.Fatalf("got %T, want MessageQueuedEvent", ev)
-	}
-	if want := "0xd70d4163f3850e8483af6c995ada9d1edac6d0a8d98ae4cd8180ce9c8fc42098"; e.MessageHash != want {
-		t.Errorf("MessageHash = %q, want %q", e.MessageHash, want)
 	}
 }

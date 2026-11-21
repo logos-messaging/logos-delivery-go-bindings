@@ -11,7 +11,6 @@ import (
 // eventType each event's JSON carries.
 const (
 	wireMessageReceived        = "onMessageReceived"
-	wireMessageQueued          = "onMessageQueued"
 	wireMessageSent            = "onMessageSent"
 	wireMessagePropagated      = "onMessagePropagated"
 	wireMessageError           = "onMessageError"
@@ -22,7 +21,6 @@ const (
 func messagingEvents() []string {
 	return []string{
 		wireMessageReceived,
-		wireMessageQueued,
 		wireMessageSent,
 		wireMessagePropagated,
 		wireMessageError,
@@ -112,16 +110,10 @@ type MessageReceivedEvent struct {
 	Source      MessageSource
 }
 
-// MessageQueuedEvent is emitted when a send is held back because the rate-limit
-// budget of the current epoch is spent. The message stays queued and goes out
-// once the budget refills. It is emitted at most once per send.
-type MessageQueuedEvent struct {
-	MessageHash string
-}
-
-// MessageSentEvent is emitted when a store node confirms a message. It follows
-// the MessagePropagatedEvent, and only when the node validates its sends with
-// store.
+// MessageSentEvent is emitted when the node confirms the delivery of a message:
+// a store node confirms it, or, for a send over mix, the mix exit's reply. It
+// follows the MessagePropagatedEvent, and comes only with the reliability
+// option on and never for an ephemeral message.
 type MessageSentEvent struct {
 	MessageHash string
 }
@@ -132,9 +124,20 @@ type MessagePropagatedEvent struct {
 	MessageHash string
 }
 
-// MessageErrorEvent is emitted when sending or propagating a message fails.
+// MessageErrorKind tells why a message that Send accepted failed.
+type MessageErrorKind string
+
+const (
+	// NotPropagated: no peer took the message within the delivery window.
+	NotPropagated MessageErrorKind = "NotPropagated"
+	// NotStored: the message propagated, but no store node reported it.
+	NotStored MessageErrorKind = "NotStored"
+)
+
+// MessageErrorEvent is emitted when a message that Send accepted fails.
 type MessageErrorEvent struct {
 	MessageHash string
+	Kind        MessageErrorKind
 	Err         string
 }
 
@@ -145,7 +148,6 @@ type ConnectionStatusEvent struct {
 }
 
 func (MessageReceivedEvent) isMessagingEvent()   {}
-func (MessageQueuedEvent) isMessagingEvent()     {}
 func (MessageSentEvent) isMessagingEvent()       {}
 func (MessagePropagatedEvent) isMessagingEvent() {}
 func (MessageErrorEvent) isMessagingEvent()      {}
@@ -240,15 +242,6 @@ func decodeEvent(eventJSON string) (Event, error) {
 			Source: MessageSource(e.Source),
 		}, nil
 
-	case "message_queued":
-		var e struct {
-			MessageHash string `json:"messageHash"`
-		}
-		if err := decode(&e); err != nil {
-			return nil, err
-		}
-		return MessageQueuedEvent{MessageHash: e.MessageHash}, nil
-
 	case "message_sent":
 		var e struct {
 			MessageHash string `json:"messageHash"`
@@ -270,6 +263,7 @@ func decodeEvent(eventJSON string) (Event, error) {
 	case "message_error":
 		var e struct {
 			MessageHash string `json:"messageHash"`
+			Kind        string `json:"kind"`
 			Error       string `json:"error"`
 		}
 		if err := decode(&e); err != nil {
@@ -277,6 +271,7 @@ func decodeEvent(eventJSON string) (Event, error) {
 		}
 		return MessageErrorEvent{
 			MessageHash: e.MessageHash,
+			Kind:        MessageErrorKind(e.Kind),
 			Err:         e.Error,
 		}, nil
 

@@ -158,6 +158,7 @@ type wireEnvelope struct {
 // 64 hex digits. The MessageSentEvent, MessagePropagatedEvent or
 // MessageErrorEvent it produces carry the same hash, and so does the message a
 // receiver gets. An ephemeral message is transient, so stores do not retain it.
+// A message the node refuses comes back as a *SendError, with no event.
 //
 // Returning marks the message accepted by the send service, not delivered:
 // delivery is reported on Events(). If ctx is cancelled while the library is
@@ -197,7 +198,7 @@ func (c *MessagingClient) Send(
 		return "", ctx.Err()
 	case r := <-done:
 		if r.err != nil {
-			return "", fmt.Errorf("messaging: send: %w", r.err)
+			return "", sendError(r.err)
 		}
 		return r.hash, nil
 	}

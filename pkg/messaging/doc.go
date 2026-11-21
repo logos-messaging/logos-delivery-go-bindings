@@ -38,7 +38,8 @@
 // Send returns once the message is accepted, not once it is delivered.
 // Delivery is reported asynchronously on Events(), correlated by the message hash:
 // MessagePropagatedEvent when the message reaches neighbouring nodes,
-// MessageSentEvent when store-based validation confirms it, and
+// MessageSentEvent when a store node or the mix exit confirms it (reliability
+// on, non-ephemeral messages only), and
 // MessageErrorEvent when it fails.
 //
 // Events() never blocks the library: an event is dropped if the channel is
