@@ -154,17 +154,18 @@ type wireEnvelope struct {
 	Ephemeral    bool   `json:"ephemeral"`
 }
 
-// Send publishes payload on contentTopic and returns the RequestID that
-// correlates it with the MessageSentEvent, MessagePropagatedEvent or
-// MessageErrorEvent it produces. An ephemeral message is transient, so stores
-// do not retain it.
+// Send publishes payload on contentTopic and returns the message hash, 0x and
+// 64 hex digits. The MessageSentEvent, MessagePropagatedEvent or
+// MessageErrorEvent it produces carry the same hash, and so does the message a
+// receiver gets. An ephemeral message is transient, so stores do not retain it.
+// A message the node refuses comes back as a *SendError, with no event.
 //
 // Returning marks the message accepted by the send service, not delivered:
 // delivery is reported on Events(). If ctx is cancelled while the library is
 // still working, Send returns ctx.Err() and the message may still go out.
 func (c *MessagingClient) Send(
 	ctx context.Context, contentTopic ContentTopic, payload []byte, ephemeral bool,
-) (RequestID, error) {
+) (string, error) {
 	if err := c.check(); err != nil {
 		return "", err
 	}
@@ -182,14 +183,14 @@ func (c *MessagingClient) Send(
 	}
 
 	type result struct {
-		id  string
-		err error
+		hash string
+		err  error
 	}
 	// Buffered: the call outlives a cancelled ctx, and must not block on exit.
 	done := make(chan result, 1)
 	go func() {
-		id, err := ffi.Send(c.h, string(msg))
-		done <- result{id, err}
+		hash, err := ffi.Send(c.h, string(msg))
+		done <- result{hash, err}
 	}()
 
 	select {
@@ -197,9 +198,9 @@ func (c *MessagingClient) Send(
 		return "", ctx.Err()
 	case r := <-done:
 		if r.err != nil {
-			return "", fmt.Errorf("messaging: send: %w", r.err)
+			return "", sendError(r.err)
 		}
-		return RequestID(r.id), nil
+		return r.hash, nil
 	}
 }
 

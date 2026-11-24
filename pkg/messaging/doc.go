@@ -22,7 +22,7 @@
 //			case messaging.MessageReceivedEvent:
 //				log.Printf("received %q", e.Message.Payload)
 //			case messaging.MessagePropagatedEvent:
-//				log.Printf("%s propagated", e.RequestID)
+//				log.Printf("%s propagated", e.MessageHash)
 //			}
 //		}
 //	}()
@@ -33,12 +33,13 @@
 //	if err := client.Subscribe(topic); err != nil {
 //		return err
 //	}
-//	requestID, err := client.Send(ctx, topic, []byte("hello"), false)
+//	hash, err := client.Send(ctx, topic, []byte("hello"), false)
 //
 // Send returns once the message is accepted, not once it is delivered.
-// Delivery is reported asynchronously on Events(), correlated by RequestID:
+// Delivery is reported asynchronously on Events(), correlated by the message hash:
 // MessagePropagatedEvent when the message reaches neighbouring nodes,
-// MessageSentEvent when store-based validation confirms it, and
+// MessageSentEvent when a store node or the mix exit confirms it (reliability
+// on, non-ephemeral messages only), and
 // MessageErrorEvent when it fails.
 //
 // Events() never blocks the library: an event is dropped if the channel is

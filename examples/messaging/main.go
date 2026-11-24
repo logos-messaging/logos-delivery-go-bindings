@@ -70,11 +70,11 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	requestID, err := client.Send(ctx, contentTopic, []byte("hello from logos-delivery-go-bindings"), false)
+	hash, err := client.Send(ctx, contentTopic, []byte("hello from logos-delivery-go-bindings"), false)
 	if err != nil {
 		log.Fatalf("send: %v", err)
 	}
-	log.Printf("sent, request id %s", requestID)
+	log.Printf("sent, hash %s", hash)
 
 	// Run until interrupted so the delivery events have time to arrive.
 	sig := make(chan os.Signal, 1)
@@ -96,11 +96,11 @@ func printEvents(events <-chan messaging.Event) {
 			log.Printf("received %q on %s (hash %s)",
 				e.Message.Payload, e.Message.ContentTopic, e.MessageHash)
 		case messaging.MessageSentEvent:
-			log.Printf("sent %s (hash %s)", e.RequestID, e.MessageHash)
+			log.Printf("sent %s", e.MessageHash)
 		case messaging.MessagePropagatedEvent:
-			log.Printf("propagated %s (hash %s)", e.RequestID, e.MessageHash)
+			log.Printf("propagated %s", e.MessageHash)
 		case messaging.MessageErrorEvent:
-			log.Printf("error %s (hash %s): %s", e.RequestID, e.MessageHash, e.Err)
+			log.Printf("error %s: %s", e.MessageHash, e.Err)
 		case messaging.ConnectionStatusEvent:
 			log.Printf("connection status: %s", e.Status)
 		default:
