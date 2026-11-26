@@ -6,14 +6,17 @@ import (
 
 const testStoreNode = "/ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAm3xVDaz6SRJ6kErwC21zBJEZjavVXg7VSkoWzaV1aMA3F"
 
-func TestAddPresetReachesNewNodes(t *testing.T) {
-	err := AddPreset("bindings.test-preset", PresetFields{
-		"base":           PresetStatusStaging,
-		"entryNodes":     []string{},
-		"storeNodes":     []string{testStoreNode},
+func testPreset() PresetFields {
+	return PresetFields{
+		"clusterId":      16,
 		"maxMessageSize": "200KiB",
-	})
-	if err != nil {
+		"shardingConf":   []uint16{32},
+		"storeNodes":     []string{testStoreNode},
+	}
+}
+
+func TestAddPresetReachesNewNodes(t *testing.T) {
+	if err := AddPreset("bindings.test-preset", testPreset()); err != nil {
 		t.Fatalf("AddPreset: %v", err)
 	}
 
@@ -41,16 +44,29 @@ func TestAddPresetReachesNewNodes(t *testing.T) {
 }
 
 func TestAddPresetRejectsInvalidPreset(t *testing.T) {
-	cases := map[string]PresetFields{
-		"unknown base":     {"base": "no.such.preset"},
-		"unknown field":    {"base": PresetStatusStaging, "colour": "red"},
-		"no base, no id":   {"entryNodes": []string{}},
-		"wrong field type": {"base": PresetStatusStaging, "clusterId": "sixteen"},
+	without := func(key string) PresetFields {
+		p := testPreset()
+		delete(p, key)
+		return p
 	}
-	for name, fields := range cases {
+	with := func(key string, value any) PresetFields {
+		p := testPreset()
+		p[key] = value
+		return p
+	}
+	cases := map[string]struct {
+		name   string
+		fields PresetFields
+	}{
+		"built-in name":    {PresetStatusStaging, testPreset()},
+		"unknown field":    {"bindings.invalid", with("colour", "red")},
+		"no sharding":      {"bindings.invalid", without("shardingConf")},
+		"wrong field type": {"bindings.invalid", with("clusterId", "sixteen")},
+	}
+	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			if err := AddPreset("bindings.invalid", fields); err == nil {
-				t.Errorf("AddPreset(%v) = nil, want an error", fields)
+			if err := AddPreset(c.name, c.fields); err == nil {
+				t.Errorf("AddPreset(%q, %v) = nil, want an error", c.name, c.fields)
 			}
 		})
 	}

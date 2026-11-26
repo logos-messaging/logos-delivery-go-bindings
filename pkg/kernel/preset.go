@@ -7,17 +7,17 @@ import (
 	"github.com/logos-messaging/logos-delivery-go-bindings/internal/ffi"
 )
 
-// PresetFields describes a network preset, keyed by logos-delivery's preset
-// field names: "clusterId", "entryNodes", "storeNodes", "discv5BootstrapNodes",
-// "maxMessageSize", "numShards", "shards" and so on. A "base" names a preset
-// whose values fill the fields left out; a field that is set replaces the
-// base's value, lists included. Without a base, "clusterId" is required.
+// PresetFields is a complete network preset, keyed by the field names of
+// logos-delivery's NetworkPresetConf: "clusterId", "maxMessageSize",
+// "shardingConf", "entryNodes", "storeNodes" and so on. "maxMessageSize" and
+// "shardingConf" are required; "shardingConf" is a list of shard ids for
+// auto-sharding, or "static". A field left out is zero or empty.
 type PresetFields map[string]any
 
-// AddPreset adds the network preset name, or replaces it, so that a Config can
-// select it by name. It applies to every node created afterwards in this
-// process; nodes that already exist keep the preset they were created with.
-// A registered preset takes precedence over a built-in one of the same name.
+// AddPreset adds the network preset name, or replaces one added under that
+// name, so that a Config can select it by name. It applies to every node
+// created afterwards in this process; nodes that already exist keep the preset
+// they were created with. A built-in preset cannot be replaced.
 func AddPreset(name string, fields PresetFields) error {
 	presetJSON, err := json.Marshal(fields)
 	if err != nil {
