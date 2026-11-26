@@ -13,10 +13,11 @@ const (
 // Network presets. A preset fixes the cluster id, sharding, entry nodes and
 // RLN settings for a known network, so a Config usually needs nothing else.
 const (
-	PresetTWN        = "twn"         // The Waku Network
-	PresetLogosDev   = "logos.dev"   // Logos Dev Network
-	PresetLogosTest  = "logos.test"  // Logos Test Network
-	PresetStatusProd = "status.prod" // Status Production Network
+	PresetTWN           = "twn"            // The Waku Network
+	PresetLogosDev      = "logos.dev"      // Logos Dev Network
+	PresetLogosTest     = "logos.test"     // Logos Test Network
+	PresetStatusProd    = "status.prod"    // Status Production Network
+	PresetStatusStaging = "status.staging" // Status Staging Network
 )
 
 // Overrides is a bag of per-field configuration overrides. Keys are node
