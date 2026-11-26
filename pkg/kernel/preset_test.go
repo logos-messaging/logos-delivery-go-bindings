@@ -24,7 +24,7 @@ func TestAddPresetReachesNewNodes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	defer node.Close()
+	defer func() { _ = node.Close() }()
 
 	storeNodes, err := node.Debug().StoreNodes()
 	if err != nil {
