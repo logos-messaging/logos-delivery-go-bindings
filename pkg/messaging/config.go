@@ -12,6 +12,8 @@ type (
 	Overrides = kernel.Overrides
 	// Config is a node's configuration.
 	Config = kernel.Config
+	// PresetFields describes a network preset for AddPreset.
+	PresetFields = kernel.PresetFields
 )
 
 const (
@@ -24,8 +26,15 @@ const (
 // Network presets. A preset fixes the cluster id, sharding, entry nodes and
 // RLN settings for a known network, so a Config usually needs nothing else.
 const (
-	PresetTWN        = kernel.PresetTWN
-	PresetLogosDev   = kernel.PresetLogosDev
-	PresetLogosTest  = kernel.PresetLogosTest
-	PresetStatusProd = kernel.PresetStatusProd
+	PresetTWN           = kernel.PresetTWN
+	PresetLogosDev      = kernel.PresetLogosDev
+	PresetLogosTest     = kernel.PresetLogosTest
+	PresetStatusProd    = kernel.PresetStatusProd
+	PresetStatusStaging = kernel.PresetStatusStaging
 )
+
+// AddPreset adds the network preset name, or replaces it, for the nodes
+// created afterwards in this process. See kernel.AddPreset.
+func AddPreset(name string, fields PresetFields) error {
+	return kernel.AddPreset(name, fields)
+}

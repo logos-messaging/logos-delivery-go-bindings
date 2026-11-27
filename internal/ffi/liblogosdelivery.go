@@ -7,8 +7,8 @@
 // pkg/kernel and pkg/messaging stay pure Go.
 //
 // liblogosdelivery is built on nim-ffi's CBOR ABI. Every entry point except the
-// constructor takes the context handle, one FFICallback and a CBOR-encoded
-// request map keyed by argument name. On success the callback receives the
+// constructor and the context-free calls (AddPreset) takes the context handle,
+// one FFICallback and a CBOR-encoded request map keyed by argument name. On success the callback receives the
 // CBOR-encoded reply; on failure, the error text. Event listeners receive the
 // event JSON as is.
 //
@@ -30,6 +30,7 @@ typedef void (*FFICallback)(int ret, const char* msg, size_t len, void* userData
 typedef int (*logosRawFn)(void* ctx, FFICallback callback, void* userData, const uint8_t* req, size_t reqLen);
 
 void* logosdelivery_create_node(const uint8_t* req, size_t reqLen, FFICallback callback, void* userData);
+int logosdelivery_add_preset(FFICallback callback, void* userData, const uint8_t* req, size_t reqLen);
 int logosdelivery_destroy(void* ctx);
 int logosdelivery_start_node(void* ctx, FFICallback callback, void* userData, const uint8_t* req, size_t reqLen);
 int logosdelivery_stop_node(void* ctx, FFICallback callback, void* userData, const uint8_t* req, size_t reqLen);
@@ -49,6 +50,9 @@ extern void logosEvent(int ret, char* msg, size_t len, void* userData);
 // to void* here: the context is a token, not an address.
 static uintptr_t cGoCreateNode(const void* req, size_t reqLen, uintptr_t ud) {
 	return (uintptr_t) logosdelivery_create_node((const uint8_t*) req, reqLen, (FFICallback) logosReply, (void*) ud);
+}
+static int cGoAddPreset(const void* req, size_t reqLen, uintptr_t ud) {
+	return logosdelivery_add_preset((FFICallback) logosReply, (void*) ud, (const uint8_t*) req, reqLen);
 }
 static int cGoCall(logosRawFn fn, uintptr_t ctx, const void* req, size_t reqLen, uintptr_t ud) {
 	return fn((void*) ctx, (FFICallback) logosReply, (void*) ud, (const uint8_t*) req, reqLen);
@@ -213,6 +217,20 @@ func New(configJSON string) (Handle, error) {
 		return Handle{}, errors.New("logosdelivery_create_node returned no context")
 	}
 	return h, nil
+}
+
+// AddPreset adds the network preset name, or replaces it, for the nodes
+// created afterwards in this process. presetJSON is a JSON object of preset
+// fields that may name a "base" preset. It needs no node.
+func AddPreset(name, presetJSON string) error {
+	req := struct {
+		Name       string `cbor:"name"`
+		PresetJSON string `cbor:"presetJson"`
+	}{name, presetJSON}
+	_, err := await(req, func(buf unsafe.Pointer, n C.size_t, ud C.uintptr_t) C.int {
+		return C.cGoAddPreset(buf, n, ud)
+	})
+	return err
 }
 
 // Start starts the node's protocols and Messaging API services.
